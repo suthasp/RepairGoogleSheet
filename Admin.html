@@ -90,6 +90,7 @@
     .filters input, .filters select {
       padding: 8px 10px; border: 1.5px solid var(--line); border-radius: 6px; font-family: inherit; font-size: 13px;
     }
+    #searchBox { min-width: 260px; }
     table { width: 100%; border-collapse: collapse; background: var(--card); border-radius: 10px; overflow: hidden; }
     th, td { text-align: left; padding: 10px 12px; font-size: 13px; border-bottom: 1px solid var(--line); }
     th { background: #EFECE6; color: var(--gray); font-weight: 700; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
@@ -104,6 +105,7 @@
     .badge.ยกเลิก { background: #FEE2E2; color: var(--danger); }
     td select { padding: 4px 6px; border-radius: 6px; border: 1px solid var(--line); font-size: 12px; }
     .ticket-cell { font-family: ui-monospace, Menlo, Consolas, monospace; font-weight: 700; }
+    .ticket-cell .sccd { font-weight: 400; font-size: 11px; color: var(--gray); }
     .link { color: var(--blue); text-decoration: underline; cursor: pointer; font-size: 12px; }
     .link.danger { color: var(--danger); }
     #loadingRow td { text-align: center; color: var(--gray); padding: 30px; }
@@ -159,7 +161,7 @@
 
       <div id="viewList" style="display:none">
         <div class="filters">
-          <input id="searchBox" placeholder="ค้นหา Ticket ID / ชื่อ / สถานที่">
+          <input id="searchBox" placeholder="ค้นหา Ticket ID / SCCD / ชื่อ / สถานที่">
           <select id="statusFilter">
             <option value="">ทุกสถานะ</option>
             <option>รอดำเนินการ</option>
@@ -297,6 +299,7 @@
       let filtered = allTickets.filter(t => {
         const matchSearch = !search ||
           (t.TicketID||'').toLowerCase().includes(search) ||
+          String(t.SCCD||'').toLowerCase().includes(search) ||
           (t.ReporterName||'').toLowerCase().includes(search) ||
           (t.Location||'').toLowerCase().includes(search);
         const matchStatus = !statusF || t.Status === statusF;
@@ -324,7 +327,7 @@
         const photoLink = t.PhotoURL ? `<a class="link" href="${t.PhotoURL}" target="_blank">ดูรูป</a>` : '-';
 
         return `<tr>
-          <td class="ticket-cell">${t.TicketID}</td>
+          <td class="ticket-cell">${esc(t.TicketID)}${t.SCCD ? `<br><span class="sccd">SCCD ${esc(t.SCCD)}</span>` : ''}</td>
           <td>${date}</td>
           <td>${t.ReporterName||''}<br><span style="color:#78716C;font-size:11px">${t.ReporterType||''}</span></td>
           <td>${t.Location||''}</td>

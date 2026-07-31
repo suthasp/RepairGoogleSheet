@@ -227,6 +227,9 @@
       <label class="req">สถานที่เกิดเหตุ</label>
       <select id="location"><option value="">กำลังโหลด...</option></select>
 
+      <label>เลขที่ SCCD / ITSM (ถ้ามี)</label>
+      <input id="sccd" placeholder="เลขอ้างอิงจากระบบ SCCD/ITSM" maxlength="50">
+
       <label class="req">ประเภทงานซ่อม</label>
       <select id="category"><option value="">กำลังโหลด...</option></select>
 
@@ -334,6 +337,7 @@
         department: document.getElementById('department').value.trim(),
         contact: document.getElementById('contact').value.trim(),
         location: document.getElementById('location').value.trim(),
+        sccd: document.getElementById('sccd').value.trim(),
         category: document.getElementById('category').value,
         priority: document.getElementById('priority').value,
         description: document.getElementById('description').value.trim(),

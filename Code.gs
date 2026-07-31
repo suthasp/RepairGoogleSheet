@@ -13,6 +13,13 @@ const SHEET_LOCATIONS = 'Locations';
 const SHEET_ADMIN = 'AdminConfig';
 const DRIVE_FOLDER_NAME = 'RepairSystem_Photos';
 
+// ลำดับคอลัมน์ในชีท Requests — SCCD คือเลขอ้างอิงงานจากระบบ SCCD/ITSM
+const REQUEST_HEADERS = [
+  'TicketID', 'SCCD', 'Timestamp', 'ReporterType', 'ReporterName', 'Contact',
+  'Department', 'Location', 'Category', 'Description', 'PhotoURL',
+  'Status', 'Priority', 'AssignedTo', 'UpdatedAt', 'ClosedAt', 'Notes'
+];
+
 const STATUS_LIST = ['รอดำเนินการ', 'กำลังซ่อม', 'เสร็จสิ้น', 'ปิดงาน', 'ยกเลิก'];
 const PRIORITY_LIST = ['ต่ำ', 'ปานกลาง', 'สูง', 'เร่งด่วน'];
 
@@ -35,13 +42,10 @@ function setupSpreadsheet() {
   let sh = ss.getSheetByName(SHEET_REQUESTS);
   if (!sh) sh = ss.insertSheet(SHEET_REQUESTS);
   sh.clear();
-  sh.appendRow([
-    'TicketID', 'Timestamp', 'ReporterType', 'ReporterName', 'Contact',
-    'Department', 'Location', 'Category', 'Description', 'PhotoURL',
-    'Status', 'Priority', 'AssignedTo', 'UpdatedAt', 'ClosedAt', 'Notes'
-  ]);
+  sh.appendRow(REQUEST_HEADERS);
   sh.setFrozenRows(1);
-  sh.getRange('A1:P1').setFontWeight('bold').setBackground('#4a86e8').setFontColor('white');
+  sh.getRange(1, 1, 1, REQUEST_HEADERS.length)
+    .setFontWeight('bold').setBackground('#4a86e8').setFontColor('white');
 
   // --- Technicians sheet ---
   let shT = ss.getSheetByName(SHEET_TECHNICIANS);
@@ -88,6 +92,45 @@ function setupLocations() {
     ? `เพิ่มสถานที่ ${added} รายการในชีท "Locations" เรียบร้อย`
     : 'ชีท "Locations" มีข้อมูลอยู่แล้ว ไม่มีการเปลี่ยนแปลง';
   try { SpreadsheetApp.getUi().alert(msg); } catch (e) { console.log(msg); }
+}
+
+/**
+ * เพิ่มคอลัมน์ SCCD ในชีท Requests ที่ติดตั้งไปแล้ว (ไม่กระทบข้อมูลเดิม)
+ * เลือกฟังก์ชันนี้แล้วกด Run ครั้งเดียว — รันซ้ำได้ ไม่เพิ่มคอลัมน์ซ้ำ
+ */
+function migrateAddSccdColumn() {
+  const sh = getSheet_(SHEET_REQUESTS);
+  if (!sh) throw new Error('ไม่พบชีท ' + SHEET_REQUESTS);
+
+  const headers = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0];
+  if (headers.indexOf('SCCD') !== -1) {
+    const msg = 'มีคอลัมน์ SCCD อยู่แล้ว ไม่มีการเปลี่ยนแปลง';
+    try { SpreadsheetApp.getUi().alert(msg); } catch (e) { console.log(msg); }
+    return;
+  }
+
+  const ticketCol = headers.indexOf('TicketID');
+  if (ticketCol === -1) throw new Error('ไม่พบคอลัมน์ TicketID');
+
+  sh.insertColumnAfter(ticketCol + 1);          // แทรกคอลัมน์ว่างถัดจาก TicketID
+  const newCol = ticketCol + 2;
+  sh.getRange(1, newCol).setValue('SCCD')
+    .setFontWeight('bold').setBackground('#4a86e8').setFontColor('white');
+  sh.setColumnWidth(newCol, 110);
+  SpreadsheetApp.flush();
+
+  const msg = 'เพิ่มคอลัมน์ SCCD เรียบร้อย (คอลัมน์ ' + columnLetter_(newCol) + ') — งานเดิมจะเว้นว่างไว้ กรอกย้อนหลังในชีทได้';
+  try { SpreadsheetApp.getUi().alert(msg); } catch (e) { console.log(msg); }
+}
+
+function columnLetter_(col) {
+  let s = '';
+  while (col > 0) {
+    const rem = (col - 1) % 26;
+    s = String.fromCharCode(65 + rem) + s;
+    col = Math.floor((col - 1) / 26);
+  }
+  return s;
 }
 
 /** @return {number} จำนวนรายการที่เพิ่มเข้าไป (0 = มีข้อมูลอยู่แล้ว) */
@@ -197,12 +240,28 @@ function submitTicket(data) {
     photoUrl = uploadPhoto_(data.photoBase64, data.photoMimeType, data.photoName, ticketId);
   }
 
-  sh.appendRow([
-    ticketId, now, data.reporterType || 'บุคคลทั่วไป', data.reporterName,
-    data.contact || '', data.department || '', data.location, data.category,
-    data.description, photoUrl, STATUS_LIST[0], data.priority || PRIORITY_LIST[1],
-    '', now, '', ''
-  ]);
+  // เขียนตามชื่อหัวคอลัมน์จริงในชีท เพื่อไม่ให้พลาดถ้าลำดับคอลัมน์ต่างจากค่าตั้งต้น
+  const values = {
+    TicketID: ticketId,
+    SCCD: data.sccd || '',
+    Timestamp: now,
+    ReporterType: data.reporterType || 'บุคคลทั่วไป',
+    ReporterName: data.reporterName,
+    Contact: data.contact || '',
+    Department: data.department || '',
+    Location: data.location,
+    Category: data.category,
+    Description: data.description,
+    PhotoURL: photoUrl,
+    Status: STATUS_LIST[0],
+    Priority: data.priority || PRIORITY_LIST[1],
+    AssignedTo: '',
+    UpdatedAt: now,
+    ClosedAt: '',
+    Notes: ''
+  };
+  const headers = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0];
+  sh.appendRow(headers.map(h => values[h] !== undefined ? values[h] : ''));
 
   try {
     notifyLine_(ticketId, data);
@@ -232,6 +291,7 @@ function notifyLine_(ticketId, data) {
 
   const message =
     `🔧 แจ้งซ่อมใหม่ [${ticketId}]\n` +
+    (data.sccd ? `SCCD/ITSM: ${data.sccd}\n` : '') +
     `ผู้แจ้ง: ${data.reporterName}\n` +
     `สถานที่: ${data.location}\n` +
     `ประเภท: ${data.category}\n` +
