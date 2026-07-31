@@ -105,7 +105,28 @@
     td select { padding: 4px 6px; border-radius: 6px; border: 1px solid var(--line); font-size: 12px; }
     .ticket-cell { font-family: ui-monospace, Menlo, Consolas, monospace; font-weight: 700; }
     .link { color: var(--blue); text-decoration: underline; cursor: pointer; font-size: 12px; }
+    .link.danger { color: var(--danger); }
     #loadingRow td { text-align: center; color: var(--gray); padding: 30px; }
+
+    /* ---- ฟอร์มเพิ่มช่าง ---- */
+    .tech-add {
+      background: var(--card); border: 1px solid var(--line); border-radius: 10px;
+      padding: 16px; margin-bottom: 16px;
+      display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap;
+    }
+    .tech-add .field { display: flex; flex-direction: column; gap: 4px; }
+    .tech-add label { font-size: 11px; color: var(--gray); font-weight: 700; }
+    .tech-add input {
+      padding: 8px 10px; border: 1.5px solid var(--line); border-radius: 6px;
+      font-family: inherit; font-size: 13px; min-width: 180px;
+    }
+    .tech-add button {
+      padding: 9px 20px; background: var(--orange); color: #fff; border: none;
+      border-radius: 6px; font-weight: 700; font-family: inherit; font-size: 13px; cursor: pointer;
+    }
+    .tech-add button:disabled { opacity: 0.5; cursor: default; }
+    .tech-add .msg { font-size: 12px; color: var(--danger); flex-basis: 100%; min-height: 14px; }
+    tr.inactive td:not(:last-child) { opacity: 0.45; }
   </style>
 </head>
 <body>
@@ -123,6 +144,7 @@
       <div class="tabs">
         <button id="tabDash" class="active">Dashboard</button>
         <button id="tabList">รายการงาน</button>
+        <button id="tabTech">จัดการช่าง</button>
       </div>
     </div>
 
@@ -160,14 +182,47 @@
           </tbody>
         </table>
       </div>
+
+      <div id="viewTech" style="display:none">
+        <div class="tech-add">
+          <div class="field">
+            <label for="techName">ชื่อช่าง</label>
+            <input id="techName" placeholder="เช่น ช่างสมชาย" maxlength="60">
+          </div>
+          <div class="field">
+            <label for="techPhone">เบอร์โทร (ไม่บังคับ)</label>
+            <input id="techPhone" placeholder="08xxxxxxxx" maxlength="20">
+          </div>
+          <button id="techAddBtn">+ เพิ่มช่าง</button>
+          <div class="msg" id="techMsg"></div>
+        </div>
+        <table>
+          <thead>
+            <tr><th>ชื่อช่าง</th><th>เบอร์โทร</th><th>สถานะ</th><th>งานที่ถืออยู่</th><th></th></tr>
+          </thead>
+          <tbody id="techBody">
+            <tr><td colspan="5" style="text-align:center;color:#78716C;padding:30px">กำลังโหลด...</td></tr>
+          </tbody>
+        </table>
+        <p style="font-size:12px;color:#78716C">
+          ช่างที่ <b>ปิดใช้งาน</b> จะไม่แสดงในช่อง "ผู้รับผิดชอบ" ของงานใหม่ แต่ประวัติงานเดิมยังคงอยู่
+        </p>
+      </div>
     </div>
   </div>
 
   <script>
     let PIN = '';
     let allTickets = [];
-    let technicians = [];
+    let technicians = [];      // ชื่อช่างที่เปิดใช้งาน (สำหรับ dropdown มอบหมาย)
+    let techniciansAll = [];   // ข้อมูลช่างทั้งหมด (สำหรับแท็บจัดการช่าง)
     let statusChart, categoryChart;
+
+    function esc(s) {
+      return String(s == null ? '' : s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
 
     document.getElementById('pinBtn').addEventListener('click', tryLogin);
     document.getElementById('pinInput').addEventListener('keydown', e => { if (e.key === 'Enter') tryLogin(); });
@@ -191,8 +246,17 @@
 
     function loadAll() {
       google.script.run.withSuccessHandler(renderStats).getDashboardStats(PIN);
-      google.script.run.withSuccessHandler(list => { technicians = list; }).getTechnicians(PIN);
-      google.script.run.withSuccessHandler(tickets => { allTickets = tickets; renderTable(); }).getAllTickets(PIN);
+      google.script.run.withSuccessHandler(list => {
+        techniciansAll = list;
+        technicians = list.filter(t => t.active).map(t => t.name);
+        renderTable();
+        renderTechTable();
+      }).getTechniciansAll(PIN);
+      google.script.run.withSuccessHandler(tickets => {
+        allTickets = tickets;
+        renderTable();
+        renderTechTable();   // อัปเดตคอลัมน์ "งานที่ถืออยู่"
+      }).getAllTickets(PIN);
     }
 
     function renderStats(stats) {
@@ -248,8 +312,15 @@
         const date = t.Timestamp ? new Date(t.Timestamp).toLocaleDateString('th-TH', {day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'}) : '-';
         const statusOpts = ['รอดำเนินการ','กำลังซ่อม','เสร็จสิ้น','ปิดงาน','ยกเลิก']
           .map(s => `<option value="${s}" ${t.Status===s?'selected':''}>${s}</option>`).join('');
-        const techOpts = ['-- ยังไม่มอบหมาย --', ...technicians]
-          .map(name => `<option ${t.AssignedTo===name?'selected':''}>${name}</option>`).join('');
+        // ถ้างานนี้มอบหมายให้ช่างที่ถูกปิดใช้งาน/ลบไปแล้ว ให้ยังแสดงชื่อเดิมไว้ในตัวเลือก
+        const assigned = (t.AssignedTo || '').trim();
+        const names = technicians.slice();
+        if (assigned && names.indexOf(assigned) === -1) names.push(assigned + ' (ไม่ใช้งาน)');
+        const techOpts = ['-- ยังไม่มอบหมาย --', ...names]
+          .map(name => {
+            const val = name.replace(' (ไม่ใช้งาน)', '');
+            return `<option value="${esc(val)}" ${assigned===val?'selected':''}>${esc(name)}</option>`;
+          }).join('');
         const photoLink = t.PhotoURL ? `<a class="link" href="${t.PhotoURL}" target="_blank">ดูรูป</a>` : '-';
 
         return `<tr>
@@ -275,17 +346,117 @@
         .updateTicket(PIN, ticketId, updates);
     }
 
+    // ---- จัดการช่าง ----
+    function renderTechTable() {
+      const body = document.getElementById('techBody');
+      if (techniciansAll.length === 0) {
+        body.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#78716C;padding:30px">ยังไม่มีรายชื่อช่าง</td></tr>';
+        return;
+      }
+      // นับงานที่ยังไม่ปิดของช่างแต่ละคน
+      const openJobs = {};
+      allTickets.forEach(t => {
+        const name = (t.AssignedTo || '').trim();
+        if (!name) return;
+        if (t.Status === 'เสร็จสิ้น' || t.Status === 'ปิดงาน' || t.Status === 'ยกเลิก') return;
+        openJobs[name] = (openJobs[name] || 0) + 1;
+      });
+
+      body.innerHTML = techniciansAll.map(t => `
+        <tr class="${t.active ? '' : 'inactive'}">
+          <td><b>${esc(t.name)}</b></td>
+          <td>${esc(t.phone) || '-'}</td>
+          <td>
+            <span class="badge ${t.active ? 'เสร็จสิ้น' : 'ยกเลิก'}">${t.active ? 'ใช้งาน' : 'ปิดใช้งาน'}</span>
+          </td>
+          <td>${openJobs[t.name] || 0}</td>
+          <td style="white-space:nowrap">
+            <span class="link" onclick="editTech(${t.row})">แก้ไข</span>
+            &nbsp;
+            <span class="link" onclick="toggleTech(${t.row}, ${t.active ? 'false' : 'true'})">${t.active ? 'ปิดใช้งาน' : 'เปิดใช้งาน'}</span>
+            &nbsp;
+            <span class="link danger" onclick="removeTech(${t.row})">ลบ</span>
+          </td>
+        </tr>`).join('');
+    }
+
+    function techMsg(text, isError) {
+      const el = document.getElementById('techMsg');
+      el.textContent = text || '';
+      el.style.color = isError ? 'var(--danger)' : 'var(--teal)';
+    }
+
+    function addTech() {
+      const nameEl = document.getElementById('techName');
+      const phoneEl = document.getElementById('techPhone');
+      const btn = document.getElementById('techAddBtn');
+      const name = nameEl.value.trim();
+      if (!name) { techMsg('กรุณากรอกชื่อช่าง', true); nameEl.focus(); return; }
+
+      btn.disabled = true;
+      techMsg('กำลังบันทึก...', false);
+      google.script.run
+        .withSuccessHandler(() => {
+          btn.disabled = false;
+          nameEl.value = ''; phoneEl.value = '';
+          techMsg('เพิ่ม "' + name + '" เรียบร้อย', false);
+          nameEl.focus();
+          loadAll();
+        })
+        .withFailureHandler(err => { btn.disabled = false; techMsg(err.message, true); })
+        .addTechnician(PIN, name, phoneEl.value.trim());
+    }
+
+    function editTech(row) {
+      const tech = techniciansAll.find(t => t.row === row);
+      if (!tech) return;
+      const name = prompt('ชื่อช่าง:', tech.name);
+      if (name === null) return;
+      const phone = prompt('เบอร์โทร:', tech.phone);
+      if (phone === null) return;
+      runTechUpdate(row, { name: name.trim(), phone: phone.trim() });
+    }
+
+    function toggleTech(row, active) {
+      runTechUpdate(row, { active: active });
+    }
+
+    function runTechUpdate(row, updates) {
+      google.script.run
+        .withSuccessHandler(() => { techMsg('บันทึกแล้ว', false); loadAll(); })
+        .withFailureHandler(err => techMsg(err.message, true))
+        .updateTechnician(PIN, row, updates);
+    }
+
+    function removeTech(row) {
+      const tech = techniciansAll.find(t => t.row === row);
+      if (!tech) return;
+      if (!confirm('ลบ "' + tech.name + '" ออกจากรายชื่อช่าง?\n(งานที่มอบหมายไว้แล้วจะยังคงชื่อเดิม — ถ้าต้องการเก็บประวัติ แนะนำใช้ "ปิดใช้งาน" แทน)')) return;
+      google.script.run
+        .withSuccessHandler(() => { techMsg('ลบ "' + tech.name + '" แล้ว', false); loadAll(); })
+        .withFailureHandler(err => techMsg(err.message, true))
+        .deleteTechnician(PIN, row);
+    }
+
+    document.getElementById('techAddBtn').addEventListener('click', addTech);
+    document.getElementById('techPhone').addEventListener('keydown', e => { if (e.key === 'Enter') addTech(); });
+    document.getElementById('techName').addEventListener('keydown', e => { if (e.key === 'Enter') addTech(); });
+
     document.getElementById('searchBox').addEventListener('input', renderTable);
     document.getElementById('statusFilter').addEventListener('change', renderTable);
     document.getElementById('refreshBtn').addEventListener('click', loadAll);
 
     document.getElementById('tabDash').addEventListener('click', () => switchTab('dash'));
     document.getElementById('tabList').addEventListener('click', () => switchTab('list'));
+    document.getElementById('tabTech').addEventListener('click', () => switchTab('tech'));
     function switchTab(which) {
-      document.getElementById('viewDash').style.display = which === 'dash' ? 'block' : 'none';
-      document.getElementById('viewList').style.display = which === 'list' ? 'block' : 'none';
-      document.getElementById('tabDash').classList.toggle('active', which === 'dash');
-      document.getElementById('tabList').classList.toggle('active', which === 'list');
+      const views = { dash: 'viewDash', list: 'viewList', tech: 'viewTech' };
+      const tabs = { dash: 'tabDash', list: 'tabList', tech: 'tabTech' };
+      Object.keys(views).forEach(k => {
+        document.getElementById(views[k]).style.display = k === which ? 'block' : 'none';
+        document.getElementById(tabs[k]).classList.toggle('active', k === which);
+      });
+      if (which === 'tech') techMsg('', false);
     }
   </script>
 </body>

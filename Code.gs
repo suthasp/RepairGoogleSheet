@@ -209,12 +209,106 @@ function getAllTickets(pin) {
   return rows.reverse(); // ใหม่สุดก่อน
 }
 
+// รับค่า Active ได้ทั้งแบบ checkbox (true) และแบบพิมพ์ข้อความ (TRUE / ใช่ / 1)
+function isActive_(v) {
+  if (v === true) return true;
+  const s = String(v).trim().toLowerCase();
+  return s === 'true' || s === '1' || s === 'ใช่';
+}
+
 function getTechnicians(pin) {
   if (!checkAdminPin(pin)) throw new Error('PIN ไม่ถูกต้อง');
   const sh = getSheet_(SHEET_TECHNICIANS);
   return sh.getDataRange().getValues().slice(1)
-    .filter(r => r[2] === true)
-    .map(r => r[0]);
+    .filter(r => String(r[0]).trim() && isActive_(r[2]))
+    .map(r => String(r[0]).trim());
+}
+
+// ============ ADMIN API: จัดการช่าง ============
+/** คืนรายชื่อช่างทั้งหมด (รวมที่ปิดใช้งาน) พร้อมเลขแถวในชีท */
+function getTechniciansAll(pin) {
+  if (!checkAdminPin(pin)) throw new Error('PIN ไม่ถูกต้อง');
+  const sh = getSheet_(SHEET_TECHNICIANS);
+  const values = sh.getDataRange().getValues();
+  const list = [];
+  for (let i = 1; i < values.length; i++) {
+    const name = String(values[i][0]).trim();
+    if (!name) continue;
+    list.push({
+      row: i + 1,
+      name: name,
+      phone: String(values[i][1] || '').trim(),
+      active: isActive_(values[i][2])
+    });
+  }
+  return list;
+}
+
+function addTechnician(pin, name, phone) {
+  if (!checkAdminPin(pin)) throw new Error('PIN ไม่ถูกต้อง');
+  name = String(name || '').trim();
+  if (!name) throw new Error('กรุณากรอกชื่อช่าง');
+
+  const sh = getSheet_(SHEET_TECHNICIANS);
+  const existing = sh.getDataRange().getValues().slice(1)
+    .map(r => String(r[0]).trim().toLowerCase());
+  if (existing.indexOf(name.toLowerCase()) !== -1) {
+    throw new Error('มีชื่อช่างนี้อยู่แล้ว');
+  }
+
+  sh.appendRow([name, String(phone || '').trim(), true]);
+  sh.getRange(sh.getLastRow(), 3).insertCheckboxes();
+  return { success: true };
+}
+
+/** updates = { name?, phone?, active? } — row คือเลขแถวจาก getTechniciansAll */
+function updateTechnician(pin, row, updates) {
+  if (!checkAdminPin(pin)) throw new Error('PIN ไม่ถูกต้อง');
+  const sh = getSheet_(SHEET_TECHNICIANS);
+  row = Number(row);
+  if (!(row >= 2) || row > sh.getLastRow()) throw new Error('ไม่พบข้อมูลช่างแถวนี้');
+
+  const oldName = String(sh.getRange(row, 1).getValue()).trim();
+
+  if (updates.name !== undefined) {
+    const newName = String(updates.name).trim();
+    if (!newName) throw new Error('กรุณากรอกชื่อช่าง');
+    const dup = sh.getDataRange().getValues().slice(1).some((r, i) =>
+      (i + 2) !== row && String(r[0]).trim().toLowerCase() === newName.toLowerCase());
+    if (dup) throw new Error('มีชื่อช่างนี้อยู่แล้ว');
+    sh.getRange(row, 1).setValue(newName);
+    if (newName !== oldName) renameAssignedTo_(oldName, newName);
+  }
+  if (updates.phone !== undefined) {
+    sh.getRange(row, 2).setValue(String(updates.phone).trim());
+  }
+  if (updates.active !== undefined) {
+    sh.getRange(row, 3).setValue(updates.active === true || updates.active === 'true');
+  }
+  return { success: true };
+}
+
+function deleteTechnician(pin, row) {
+  if (!checkAdminPin(pin)) throw new Error('PIN ไม่ถูกต้อง');
+  const sh = getSheet_(SHEET_TECHNICIANS);
+  row = Number(row);
+  if (!(row >= 2) || row > sh.getLastRow()) throw new Error('ไม่พบข้อมูลช่างแถวนี้');
+  sh.deleteRow(row);
+  return { success: true };
+}
+
+/** เปลี่ยนชื่อช่างในงานที่มอบหมายไว้แล้ว ให้ตรงกับชื่อใหม่ */
+function renameAssignedTo_(oldName, newName) {
+  if (!oldName) return;
+  const sh = getSheet_(SHEET_REQUESTS);
+  const data = sh.getDataRange().getValues();
+  const col = data[0].indexOf('AssignedTo');
+  if (col === -1) return;
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][col]).trim() === oldName) {
+      sh.getRange(i + 1, col + 1).setValue(newName);
+    }
+  }
 }
 
 function updateTicket(pin, ticketId, updates) {
