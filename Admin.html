@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --ink: #1C1917;
+      --paper: #F5F4F1;
+      --line: #E7E3DB;
+      --orange: #E8590C;
+      --teal: #0F766E;
+      --blue: #2563EB;
+      --gray: #78716C;
+      --danger: #B91C1C;
+      --card: #fff;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans Thai", sans-serif;
+      background: var(--paper);
+      color: var(--ink);
+    }
+
+    /* ---- PIN gate ---- */
+    #gate {
+      min-height: 100vh;
+      display: flex; align-items: center; justify-content: center;
+      flex-direction: column;
+      gap: 14px;
+    }
+    #gate h2 { margin: 0 0 4px; }
+    #gate input {
+      padding: 12px 14px;
+      border: 1.5px solid var(--line);
+      border-radius: 8px;
+      font-size: 20px;
+      letter-spacing: 4px;
+      text-align: center;
+      width: 160px;
+    }
+    #gate button {
+      padding: 10px 24px;
+      background: var(--ink);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    #gate .err { color: var(--danger); font-size: 13px; height: 16px; }
+
+    /* ---- Main layout ---- */
+    #app { display: none; }
+    .topbar {
+      background: var(--ink);
+      color: #fff;
+      padding: 16px 24px;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .topbar h1 { font-size: 18px; margin: 0; }
+    .tabs { display: flex; gap: 4px; }
+    .tabs button {
+      background: none; border: none; color: #D6D3D1;
+      padding: 8px 14px; border-radius: 6px; cursor: pointer; font-size: 14px; font-family: inherit;
+    }
+    .tabs button.active { background: rgba(255,255,255,0.15); color: #fff; font-weight: 700; }
+
+    .container { max-width: 1100px; margin: 0 auto; padding: 24px; }
+
+    .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 20px; }
+    .stat-card {
+      background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px;
+    }
+    .stat-card .num { font-size: 28px; font-weight: 800; }
+    .stat-card .label { font-size: 12px; color: var(--gray); margin-top: 2px; }
+    .stat-card.pending .num { color: var(--gray); }
+    .stat-card.progress .num { color: var(--blue); }
+    .stat-card.done .num { color: var(--teal); }
+    .stat-card.week .num { color: var(--orange); }
+
+    .chart-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
+    .chart-card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px; }
+    .chart-card h3 { margin: 0 0 12px; font-size: 14px; color: var(--gray); }
+
+    /* ---- Table ---- */
+    .filters { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+    .filters input, .filters select {
+      padding: 8px 10px; border: 1.5px solid var(--line); border-radius: 6px; font-family: inherit; font-size: 13px;
+    }
+    table { width: 100%; border-collapse: collapse; background: var(--card); border-radius: 10px; overflow: hidden; }
+    th, td { text-align: left; padding: 10px 12px; font-size: 13px; border-bottom: 1px solid var(--line); }
+    th { background: #EFECE6; color: var(--gray); font-weight: 700; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
+    tr:hover { background: #FFFBF7; }
+    .badge {
+      display: inline-block; padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 700;
+    }
+    .badge.รอดำเนินการ { background: #EEE; color: var(--gray); }
+    .badge.กำลังซ่อม { background: #DBEAFE; color: var(--blue); }
+    .badge.เสร็จสิ้น { background: #D1FAE5; color: var(--teal); }
+    .badge.ปิดงาน { background: #E0E7FF; color: #4338CA; }
+    .badge.ยกเลิก { background: #FEE2E2; color: var(--danger); }
+    td select { padding: 4px 6px; border-radius: 6px; border: 1px solid var(--line); font-size: 12px; }
+    .ticket-cell { font-family: ui-monospace, Menlo, Consolas, monospace; font-weight: 700; }
+    .link { color: var(--blue); text-decoration: underline; cursor: pointer; font-size: 12px; }
+    #loadingRow td { text-align: center; color: var(--gray); padding: 30px; }
+  </style>
+</head>
+<body>
+
+  <div id="gate">
+    <h2>🔒 เข้าสู่หน้าแอดมิน</h2>
+    <input id="pinInput" type="password" inputmode="numeric" maxlength="8" placeholder="PIN">
+    <button id="pinBtn">เข้าสู่ระบบ</button>
+    <div class="err" id="pinErr"></div>
+  </div>
+
+  <div id="app">
+    <div class="topbar">
+      <h1>🔧 ระบบแจ้งซ่อม — Admin</h1>
+      <div class="tabs">
+        <button id="tabDash" class="active">Dashboard</button>
+        <button id="tabList">รายการงาน</button>
+      </div>
+    </div>
+
+    <div class="container">
+      <div id="viewDash">
+        <div class="stat-grid" id="statGrid"></div>
+        <div class="chart-row">
+          <div class="chart-card"><h3>งานตามสถานะ</h3><canvas id="statusChart"></canvas></div>
+          <div class="chart-card"><h3>งานตามประเภท</h3><canvas id="categoryChart"></canvas></div>
+        </div>
+      </div>
+
+      <div id="viewList" style="display:none">
+        <div class="filters">
+          <input id="searchBox" placeholder="ค้นหา Ticket ID / ชื่อ / สถานที่">
+          <select id="statusFilter">
+            <option value="">ทุกสถานะ</option>
+            <option>รอดำเนินการ</option>
+            <option>กำลังซ่อม</option>
+            <option>เสร็จสิ้น</option>
+            <option>ปิดงาน</option>
+            <option>ยกเลิก</option>
+          </select>
+          <span class="link" id="refreshBtn">🔄 รีเฟรช</span>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Ticket</th><th>วันที่แจ้ง</th><th>ผู้แจ้ง</th><th>สถานที่</th>
+              <th>ประเภท</th><th>รายละเอียด</th><th>สถานะ</th><th>ผู้รับผิดชอบ</th><th>รูป</th>
+            </tr>
+          </thead>
+          <tbody id="ticketBody">
+            <tr id="loadingRow"><td colspan="9">กำลังโหลด...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let PIN = '';
+    let allTickets = [];
+    let technicians = [];
+    let statusChart, categoryChart;
+
+    document.getElementById('pinBtn').addEventListener('click', tryLogin);
+    document.getElementById('pinInput').addEventListener('keydown', e => { if (e.key === 'Enter') tryLogin(); });
+
+    function tryLogin() {
+      const pin = document.getElementById('pinInput').value.trim();
+      if (!pin) return;
+      google.script.run
+        .withSuccessHandler(ok => {
+          if (ok) {
+            PIN = pin;
+            document.getElementById('gate').style.display = 'none';
+            document.getElementById('app').style.display = 'block';
+            loadAll();
+          } else {
+            document.getElementById('pinErr').textContent = 'PIN ไม่ถูกต้อง';
+          }
+        })
+        .checkAdminPin(pin);
+    }
+
+    function loadAll() {
+      google.script.run.withSuccessHandler(renderStats).getDashboardStats(PIN);
+      google.script.run.withSuccessHandler(list => { technicians = list; }).getTechnicians(PIN);
+      google.script.run.withSuccessHandler(tickets => { allTickets = tickets; renderTable(); }).getAllTickets(PIN);
+    }
+
+    function renderStats(stats) {
+      const grid = document.getElementById('statGrid');
+      grid.innerHTML = `
+        <div class="stat-card"><div class="num">${stats.total}</div><div class="label">งานทั้งหมด</div></div>
+        <div class="stat-card pending"><div class="num">${stats.byStatus['รอดำเนินการ']||0}</div><div class="label">รอดำเนินการ</div></div>
+        <div class="stat-card progress"><div class="num">${stats.byStatus['กำลังซ่อม']||0}</div><div class="label">กำลังซ่อม</div></div>
+        <div class="stat-card done"><div class="num">${(stats.byStatus['เสร็จสิ้น']||0)+(stats.byStatus['ปิดงาน']||0)}</div><div class="label">เสร็จสิ้น/ปิดงาน</div></div>
+        <div class="stat-card week"><div class="num">${stats.last7days}</div><div class="label">แจ้งใน 7 วันล่าสุด</div></div>
+      `;
+
+      const statusLabels = Object.keys(stats.byStatus);
+      const statusData = statusLabels.map(k => stats.byStatus[k]);
+      if (statusChart) statusChart.destroy();
+      statusChart = new Chart(document.getElementById('statusChart'), {
+        type: 'doughnut',
+        data: { labels: statusLabels, datasets: [{ data: statusData,
+          backgroundColor: ['#78716C','#2563EB','#0F766E','#4338CA','#B91C1C'] }] },
+        options: { plugins: { legend: { position: 'bottom', labels: { font: { size: 11 } } } } }
+      });
+
+      const catLabels = Object.keys(stats.byCategory);
+      const catData = catLabels.map(k => stats.byCategory[k]);
+      if (categoryChart) categoryChart.destroy();
+      categoryChart = new Chart(document.getElementById('categoryChart'), {
+        type: 'bar',
+        data: { labels: catLabels, datasets: [{ data: catData, backgroundColor: '#E8590C' }] },
+        options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } }
+      });
+    }
+
+    function renderTable() {
+      const search = document.getElementById('searchBox').value.trim().toLowerCase();
+      const statusF = document.getElementById('statusFilter').value;
+      const body = document.getElementById('ticketBody');
+
+      let filtered = allTickets.filter(t => {
+        const matchSearch = !search ||
+          (t.TicketID||'').toLowerCase().includes(search) ||
+          (t.ReporterName||'').toLowerCase().includes(search) ||
+          (t.Location||'').toLowerCase().includes(search);
+        const matchStatus = !statusF || t.Status === statusF;
+        return matchSearch && matchStatus;
+      });
+
+      if (filtered.length === 0) {
+        body.innerHTML = '<tr><td colspan="9" style="text-align:center;color:#78716C;padding:30px">ไม่พบรายการ</td></tr>';
+        return;
+      }
+
+      body.innerHTML = filtered.map(t => {
+        const date = t.Timestamp ? new Date(t.Timestamp).toLocaleDateString('th-TH', {day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'}) : '-';
+        const statusOpts = ['รอดำเนินการ','กำลังซ่อม','เสร็จสิ้น','ปิดงาน','ยกเลิก']
+          .map(s => `<option value="${s}" ${t.Status===s?'selected':''}>${s}</option>`).join('');
+        const techOpts = ['-- ยังไม่มอบหมาย --', ...technicians]
+          .map(name => `<option ${t.AssignedTo===name?'selected':''}>${name}</option>`).join('');
+        const photoLink = t.PhotoURL ? `<a class="link" href="${t.PhotoURL}" target="_blank">ดูรูป</a>` : '-';
+
+        return `<tr>
+          <td class="ticket-cell">${t.TicketID}</td>
+          <td>${date}</td>
+          <td>${t.ReporterName||''}<br><span style="color:#78716C;font-size:11px">${t.ReporterType||''}</span></td>
+          <td>${t.Location||''}</td>
+          <td>${t.Category||''}</td>
+          <td style="max-width:220px">${t.Description||''}</td>
+          <td><select onchange="updateField('${t.TicketID}','status',this.value)">${statusOpts}</select></td>
+          <td><select onchange="updateField('${t.TicketID}','assignedTo',this.value)">${techOpts}</select></td>
+          <td>${photoLink}</td>
+        </tr>`;
+      }).join('');
+    }
+
+    function updateField(ticketId, field, value) {
+      const updates = {};
+      updates[field] = field === 'assignedTo' && value.startsWith('--') ? '' : value;
+      google.script.run
+        .withSuccessHandler(() => { loadAll(); })
+        .withFailureHandler(err => alert('อัปเดตไม่สำเร็จ: ' + err.message))
+        .updateTicket(PIN, ticketId, updates);
+    }
+
+    document.getElementById('searchBox').addEventListener('input', renderTable);
+    document.getElementById('statusFilter').addEventListener('change', renderTable);
+    document.getElementById('refreshBtn').addEventListener('click', loadAll);
+
+    document.getElementById('tabDash').addEventListener('click', () => switchTab('dash'));
+    document.getElementById('tabList').addEventListener('click', () => switchTab('list'));
+    function switchTab(which) {
+      document.getElementById('viewDash').style.display = which === 'dash' ? 'block' : 'none';
+      document.getElementById('viewList').style.display = which === 'list' ? 'block' : 'none';
+      document.getElementById('tabDash').classList.toggle('active', which === 'dash');
+      document.getElementById('tabList').classList.toggle('active', which === 'list');
+    }
+  </script>
+</body>
+</html>

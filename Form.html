@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <style>
+    :root {
+      --ink: #292524;
+      --paper: #FAF9F6;
+      --line: #E7E3DB;
+      --orange: #E8590C;
+      --orange-dark: #C74A08;
+      --teal: #0F766E;
+      --gray: #78716C;
+      --danger: #B91C1C;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans Thai", sans-serif;
+      background: var(--paper);
+      color: var(--ink);
+      padding: 0 0 60px;
+    }
+    .topbar {
+      background: var(--ink);
+      color: #fff;
+      padding: 22px 20px;
+      position: relative;
+      overflow: hidden;
+    }
+    .topbar::after {
+      content: "";
+      position: absolute;
+      right: -30px; top: -30px;
+      width: 140px; height: 140px;
+      border-radius: 50%;
+      background: var(--orange);
+      opacity: 0.25;
+    }
+    .topbar h1 {
+      margin: 0;
+      font-size: 22px;
+      letter-spacing: 0.3px;
+      position: relative;
+    }
+    .topbar p {
+      margin: 4px 0 0;
+      font-size: 13px;
+      color: #D6D3D1;
+      position: relative;
+    }
+    .wrap { max-width: 560px; margin: 0 auto; padding: 20px; }
+    .card {
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 20px;
+      margin-bottom: 16px;
+    }
+    label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--gray);
+      margin: 14px 0 6px;
+    }
+    label.req::after { content: " *"; color: var(--orange); }
+    label:first-of-type { margin-top: 0; }
+    input, select, textarea {
+      width: 100%;
+      padding: 11px 12px;
+      border: 1.5px solid var(--line);
+      border-radius: 8px;
+      font-size: 15px;
+      font-family: inherit;
+      background: var(--paper);
+      color: var(--ink);
+    }
+    input:focus, select:focus, textarea:focus {
+      outline: none;
+      border-color: var(--orange);
+      background: #fff;
+    }
+    textarea { resize: vertical; min-height: 90px; }
+    .seg {
+      display: flex;
+      gap: 8px;
+    }
+    .seg button {
+      flex: 1;
+      padding: 10px;
+      border-radius: 8px;
+      border: 1.5px solid var(--line);
+      background: var(--paper);
+      font-size: 14px;
+      font-family: inherit;
+      cursor: pointer;
+      color: var(--gray);
+    }
+    .seg button.active {
+      border-color: var(--orange);
+      background: #FFF3EC;
+      color: var(--orange-dark);
+      font-weight: 700;
+    }
+    .photo-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-top: 6px;
+    }
+    .photo-btn {
+      border: 1.5px dashed var(--line);
+      border-radius: 8px;
+      padding: 14px;
+      text-align: center;
+      color: var(--gray);
+      font-size: 13px;
+      cursor: pointer;
+      flex: 1;
+    }
+    .photo-preview {
+      width: 56px; height: 56px;
+      border-radius: 8px;
+      object-fit: cover;
+      display: none;
+      border: 1px solid var(--line);
+    }
+    .submit-btn {
+      width: 100%;
+      padding: 15px;
+      border: none;
+      border-radius: 8px;
+      background: var(--orange);
+      color: #fff;
+      font-size: 16px;
+      font-weight: 700;
+      font-family: inherit;
+      cursor: pointer;
+      margin-top: 6px;
+    }
+    .submit-btn:disabled { background: #D6D3D1; cursor: default; }
+    .submit-btn:hover:not(:disabled) { background: var(--orange-dark); }
+    .err {
+      color: var(--danger);
+      font-size: 13px;
+      margin-top: 10px;
+      display: none;
+    }
+
+    /* Ticket stub confirmation */
+    .stub {
+      display: none;
+      background: #fff;
+      border: 2px dashed var(--ink);
+      border-radius: 12px;
+      padding: 24px;
+      text-align: center;
+      position: relative;
+    }
+    .stub .stamp {
+      display: inline-block;
+      border: 3px solid var(--teal);
+      color: var(--teal);
+      font-weight: 800;
+      font-size: 12px;
+      letter-spacing: 2px;
+      padding: 4px 12px;
+      border-radius: 6px;
+      transform: rotate(-4deg);
+      margin-bottom: 14px;
+    }
+    .stub .ticket-id {
+      font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+      font-size: 26px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      margin: 6px 0 4px;
+    }
+    .stub .sub { color: var(--gray); font-size: 13px; margin-bottom: 18px; }
+    .stub .again {
+      background: none;
+      border: none;
+      color: var(--orange-dark);
+      font-weight: 700;
+      font-size: 14px;
+      cursor: pointer;
+      text-decoration: underline;
+    }
+    .spinner {
+      display: inline-block;
+      width: 16px; height: 16px;
+      border: 2px solid rgba(255,255,255,0.4);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      vertical-align: -3px;
+      margin-right: 6px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <h1>🔧 แจ้งซ่อม</h1>
+    <p>กรอกรายละเอียดปัญหา ทีมงานจะรีบดำเนินการโดยเร็วที่สุด</p>
+  </div>
+
+  <div class="wrap">
+    <div class="card" id="formCard">
+      <label class="req">ประเภทผู้แจ้ง</label>
+      <div class="seg" id="reporterTypeSeg">
+        <button type="button" data-val="พนักงานภายใน" class="active">พนักงานภายใน</button>
+        <button type="button" data-val="บุคคลทั่วไป">บุคคลทั่วไป</button>
+      </div>
+
+      <label class="req">ชื่อผู้แจ้ง</label>
+      <input id="reporterName" placeholder="เช่น สมชาย ใจดี">
+
+      <label>แผนก/หน่วยงาน (ถ้ามี)</label>
+      <input id="department" placeholder="เช่น ฝ่ายบัญชี">
+
+      <label>เบอร์โทร / ช่องทางติดต่อ</label>
+      <input id="contact" placeholder="เช่น 08x-xxx-xxxx">
+
+      <label class="req">สถานที่เกิดเหตุ</label>
+      <input id="location" placeholder="เช่น อาคาร A ชั้น 3 ห้องประชุม">
+
+      <label class="req">ประเภทงานซ่อม</label>
+      <select id="category"><option value="">กำลังโหลด...</option></select>
+
+      <label>ความเร่งด่วน</label>
+      <select id="priority"><option value="">กำลังโหลด...</option></select>
+
+      <label class="req">รายละเอียดปัญหา</label>
+      <textarea id="description" placeholder="อธิบายอาการ/ปัญหาที่พบ"></textarea>
+
+      <label>แนบรูปภาพ (ถ้ามี)</label>
+      <div class="photo-row">
+        <div class="photo-btn" id="photoBtn">แตะเพื่อเลือกรูปภาพ</div>
+        <img class="photo-preview" id="photoPreview">
+      </div>
+      <input type="file" id="photoInput" accept="image/*" style="display:none">
+
+      <div class="err" id="errBox"></div>
+      <button class="submit-btn" id="submitBtn">ส่งเรื่องแจ้งซ่อม</button>
+    </div>
+
+    <div class="stub" id="stubCard">
+      <div class="stamp">รับเรื่องแล้ว</div>
+      <div class="sub">หมายเลขงานแจ้งซ่อมของคุณคือ</div>
+      <div class="ticket-id" id="ticketIdOut">-</div>
+      <div class="sub">กรุณาเก็บหมายเลขนี้ไว้อ้างอิง</div>
+      <button class="again" id="againBtn">แจ้งซ่อมรายการใหม่</button>
+    </div>
+  </div>
+
+  <script>
+    let photoBase64 = null, photoMime = null, photoName = null;
+    let reporterType = 'พนักงานภายใน';
+
+    document.querySelectorAll('#reporterTypeSeg button').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('#reporterTypeSeg button').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        reporterType = btn.dataset.val;
+      });
+    });
+
+    document.getElementById('photoBtn').addEventListener('click', () => {
+      document.getElementById('photoInput').click();
+    });
+    document.getElementById('photoInput').addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      photoMime = file.type;
+      photoName = file.name;
+      const reader = new FileReader();
+      reader.onload = () => {
+        photoBase64 = reader.result.split(',')[1];
+        const preview = document.getElementById('photoPreview');
+        preview.src = reader.result;
+        preview.style.display = 'inline-block';
+        document.getElementById('photoBtn').textContent = 'เปลี่ยนรูปภาพ';
+      };
+      reader.readAsDataURL(file);
+    });
+
+    google.script.run.withSuccessHandler(opts => {
+      const catSel = document.getElementById('category');
+      catSel.innerHTML = '<option value="">-- เลือกประเภท --</option>' +
+        opts.categories.map(c => `<option value="${c}">${c}</option>`).join('');
+      const prioSel = document.getElementById('priority');
+      prioSel.innerHTML = opts.priorities.map((p, i) =>
+        `<option value="${p}" ${i===1?'selected':''}>${p}</option>`).join('');
+    }).getFormOptions();
+
+    document.getElementById('submitBtn').addEventListener('click', () => {
+      const errBox = document.getElementById('errBox');
+      errBox.style.display = 'none';
+
+      const payload = {
+        reporterType: reporterType,
+        reporterName: document.getElementById('reporterName').value.trim(),
+        department: document.getElementById('department').value.trim(),
+        contact: document.getElementById('contact').value.trim(),
+        location: document.getElementById('location').value.trim(),
+        category: document.getElementById('category').value,
+        priority: document.getElementById('priority').value,
+        description: document.getElementById('description').value.trim(),
+        photoBase64: photoBase64,
+        photoMimeType: photoMime,
+        photoName: photoName
+      };
+
+      if (!payload.reporterName || !payload.location || !payload.category || !payload.description) {
+        errBox.textContent = 'กรุณากรอกข้อมูลที่มีเครื่องหมาย * ให้ครบถ้วน';
+        errBox.style.display = 'block';
+        return;
+      }
+
+      const btn = document.getElementById('submitBtn');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner"></span>กำลังส่ง...';
+
+      google.script.run
+        .withSuccessHandler(res => {
+          document.getElementById('formCard').style.display = 'none';
+          document.getElementById('ticketIdOut').textContent = res.ticketId;
+          document.getElementById('stubCard').style.display = 'block';
+        })
+        .withFailureHandler(err => {
+          btn.disabled = false;
+          btn.textContent = 'ส่งเรื่องแจ้งซ่อม';
+          errBox.textContent = 'เกิดข้อผิดพลาด: ' + err.message;
+          errBox.style.display = 'block';
+        })
+        .submitTicket(payload);
+    });
+
+    document.getElementById('againBtn').addEventListener('click', () => {
+      location.reload();
+    });
+  </script>
+</body>
+</html>
