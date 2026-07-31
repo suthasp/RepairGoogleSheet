@@ -84,6 +84,9 @@
     .chart-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
     .chart-card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px; }
     .chart-card h3 { margin: 0 0 12px; font-size: 14px; color: var(--gray); }
+    /* ล็อกความสูงกราฟ ไม่ให้ยืดตามความกว้างการ์ด */
+    .canvas-box { position: relative; height: 260px; }
+    @media (max-width: 700px) { .canvas-box { height: 220px; } }
 
     /* ---- Table ---- */
     .filters { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
@@ -104,6 +107,8 @@
     .badge.ปิดงาน { background: #E0E7FF; color: #4338CA; }
     .badge.ยกเลิก { background: #FEE2E2; color: var(--danger); }
     td select { padding: 4px 6px; border-radius: 6px; border: 1px solid var(--line); font-size: 12px; }
+    /* คอลัมน์ที่ห้ามตัดคำ ไม่งั้นบนจอแคบจะแตกเป็นบรรทัดละคำ */
+    td.nw, td.ticket-cell { white-space: nowrap; }
     .ticket-cell { font-family: ui-monospace, Menlo, Consolas, monospace; font-weight: 700; }
     .ticket-cell .sccd { font-weight: 400; font-size: 11px; color: var(--gray); }
     .link { color: var(--blue); text-decoration: underline; cursor: pointer; font-size: 12px; }
@@ -129,6 +134,77 @@
     .tech-add button:disabled { opacity: 0.5; cursor: default; }
     .tech-add .msg { font-size: 12px; color: var(--danger); flex-basis: 100%; min-height: 14px; }
     tr.inactive td:not(:last-child) { opacity: 0.45; }
+
+    /* ================= RESPONSIVE ================= */
+
+    /* ตารางกว้างเกินจอ — ให้เลื่อนแนวนอนได้แทนที่จะดันหน้าเว็บให้กว้าง */
+    .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+    /* ตารางงาน 9 คอลัมน์เริ่มบีบจนอ่านไม่ออกตั้งแต่ ~900px จึงสลับเป็นการ์ดตั้งแต่ช่วงแท็บเล็ต */
+    @media (max-width: 900px) {
+      .container { padding: 16px; }
+      .chart-row { grid-template-columns: 1fr; }
+      .topbar { flex-direction: column; align-items: stretch; gap: 10px; padding: 14px 16px; }
+      .topbar h1 { font-size: 16px; text-align: center; }
+      .tabs { justify-content: center; flex-wrap: wrap; }
+      .tabs button { flex: 1; min-width: 100px; padding: 10px 8px; }
+
+      .stat-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+      .stat-card { padding: 12px; }
+      .stat-card .num { font-size: 22px; }
+
+      .filters { gap: 6px; }
+      .filters input, .filters select { flex: 1 1 100%; font-size: 16px; }
+      #searchBox { min-width: 0; }
+
+      /* ตารางงาน + ตารางช่าง เปลี่ยนเป็นการ์ดแนวตั้ง อ่านง่ายกว่าเลื่อนซ้ายขวา */
+      .table-wrap table, .table-wrap tbody, .table-wrap tr, .table-wrap td { display: block; width: 100%; }
+      .table-wrap thead { display: none; }
+      .table-wrap { overflow-x: visible; }
+      .table-wrap table { background: none; }
+      .table-wrap tr {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        margin-bottom: 10px;
+        padding: 6px 12px;
+      }
+      .table-wrap tr:hover { background: var(--card); }
+      .table-wrap td {
+        border: none;
+        padding: 7px 0;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        text-align: right;
+      }
+      .table-wrap td + td { border-top: 1px dashed var(--line); }
+      .table-wrap td::before {
+        content: attr(data-label);
+        flex: 0 0 auto;
+        font-size: 11px;
+        font-weight: 700;
+        color: var(--gray);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        text-align: left;
+      }
+      .table-wrap td[data-label=""]::before { display: none; }
+      .table-wrap td.empty { display: block; text-align: center; }
+      .table-wrap td.empty::before { display: none; }
+      .table-wrap td.desc { flex-direction: column; align-items: flex-start; text-align: left; }
+      .table-wrap td.desc::before { margin-bottom: 2px; }
+      .table-wrap td select { font-size: 14px; padding: 7px 8px; max-width: 60%; }
+      .table-wrap td[style*="max-width"] { max-width: none !important; }
+      .table-wrap .actions { justify-content: flex-end; gap: 14px; }
+      .table-wrap .link { font-size: 13px; }
+
+      .tech-add { padding: 14px; }
+      .tech-add .field { flex: 1 1 100%; }
+      .tech-add input { min-width: 0; width: 100%; font-size: 16px; }
+      .tech-add button { flex: 1 1 100%; padding: 12px; }
+    }
   </style>
 </head>
 <body>
@@ -154,8 +230,8 @@
       <div id="viewDash">
         <div class="stat-grid" id="statGrid"></div>
         <div class="chart-row">
-          <div class="chart-card"><h3>งานตามสถานะ</h3><canvas id="statusChart"></canvas></div>
-          <div class="chart-card"><h3>งานตามประเภท</h3><canvas id="categoryChart"></canvas></div>
+          <div class="chart-card"><h3>งานตามสถานะ</h3><div class="canvas-box"><canvas id="statusChart"></canvas></div></div>
+          <div class="chart-card"><h3>งานตามประเภท</h3><div class="canvas-box"><canvas id="categoryChart"></canvas></div></div>
         </div>
       </div>
 
@@ -172,17 +248,19 @@
           </select>
           <span class="link" id="refreshBtn">🔄 รีเฟรช</span>
         </div>
-        <table>
-          <thead>
-            <tr>
-              <th>Ticket</th><th>วันที่แจ้ง</th><th>ผู้แจ้ง</th><th>สถานที่</th>
-              <th>ประเภท</th><th>รายละเอียด</th><th>สถานะ</th><th>ผู้รับผิดชอบ</th><th>รูป</th>
-            </tr>
-          </thead>
-          <tbody id="ticketBody">
-            <tr id="loadingRow"><td colspan="9">กำลังโหลด...</td></tr>
-          </tbody>
-        </table>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Ticket</th><th>วันที่แจ้ง</th><th>ผู้แจ้ง</th><th>สถานที่</th>
+                <th>ประเภท</th><th>รายละเอียด</th><th>สถานะ</th><th>ผู้รับผิดชอบ</th><th>รูป</th>
+              </tr>
+            </thead>
+            <tbody id="ticketBody">
+              <tr id="loadingRow"><td class="empty" colspan="9">กำลังโหลด...</td></tr>
+            </tbody>
+          </table>
+        </div>
       </div>
 
       <div id="viewTech" style="display:none">
@@ -198,14 +276,16 @@
           <button id="techAddBtn">+ เพิ่มช่าง</button>
           <div class="msg" id="techMsg"></div>
         </div>
-        <table>
-          <thead>
-            <tr><th>ชื่อช่าง</th><th>เบอร์โทร</th><th>สถานะ</th><th>งานที่ถืออยู่</th><th></th></tr>
-          </thead>
-          <tbody id="techBody">
-            <tr><td colspan="5" style="text-align:center;color:#78716C;padding:30px">กำลังโหลด...</td></tr>
-          </tbody>
-        </table>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>ชื่อช่าง</th><th>เบอร์โทร</th><th>สถานะ</th><th>งานที่ถืออยู่</th><th></th></tr>
+            </thead>
+            <tbody id="techBody">
+              <tr><td class="empty" colspan="5" style="text-align:center;color:#78716C;padding:30px">กำลังโหลด...</td></tr>
+            </tbody>
+          </table>
+        </div>
         <p style="font-size:12px;color:#78716C">
           ช่างที่ <b>ปิดใช้งาน</b> จะไม่แสดงในช่อง "ผู้รับผิดชอบ" ของงานใหม่ แต่ประวัติงานเดิมยังคงอยู่
         </p>
@@ -278,7 +358,10 @@
         type: 'doughnut',
         data: { labels: statusLabels, datasets: [{ data: statusData,
           backgroundColor: ['#78716C','#2563EB','#0F766E','#4338CA','#B91C1C'] }] },
-        options: { plugins: { legend: { position: 'bottom', labels: { font: { size: 11 } } } } }
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { position: 'bottom', labels: { font: { size: 11 }, boxWidth: 12 } } }
+        }
       });
 
       const catLabels = Object.keys(stats.byCategory);
@@ -287,7 +370,14 @@
       categoryChart = new Chart(document.getElementById('categoryChart'), {
         type: 'bar',
         data: { labels: catLabels, datasets: [{ data: catData, backgroundColor: '#E8590C' }] },
-        options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } }
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            y: { beginAtZero: true, ticks: { precision: 0 } },
+            x: { ticks: { font: { size: 10 }, maxRotation: 45, minRotation: 0, autoSkip: false } }
+          }
+        }
       });
     }
 
@@ -307,7 +397,7 @@
       });
 
       if (filtered.length === 0) {
-        body.innerHTML = '<tr><td colspan="9" style="text-align:center;color:#78716C;padding:30px">ไม่พบรายการ</td></tr>';
+        body.innerHTML = '<tr><td class="empty" colspan="9" style="text-align:center;color:#78716C;padding:30px">ไม่พบรายการ</td></tr>';
         return;
       }
 
@@ -327,15 +417,15 @@
         const photoLink = t.PhotoURL ? `<a class="link" href="${t.PhotoURL}" target="_blank">ดูรูป</a>` : '-';
 
         return `<tr>
-          <td class="ticket-cell">${esc(t.TicketID)}${t.SCCD ? `<br><span class="sccd">SCCD ${esc(t.SCCD)}</span>` : ''}</td>
-          <td>${date}</td>
-          <td>${t.ReporterName||''}<br><span style="color:#78716C;font-size:11px">${t.ReporterType||''}</span></td>
-          <td>${t.Location||''}</td>
-          <td>${t.Category||''}</td>
-          <td style="max-width:220px">${t.Description||''}</td>
-          <td><select onchange="updateField('${t.TicketID}','status',this.value)">${statusOpts}</select></td>
-          <td><select onchange="updateField('${t.TicketID}','assignedTo',this.value)">${techOpts}</select></td>
-          <td>${photoLink}</td>
+          <td class="ticket-cell" data-label="Ticket"><div>${esc(t.TicketID)}${t.SCCD ? `<br><span class="sccd">SCCD ${esc(t.SCCD)}</span>` : ''}</div></td>
+          <td class="nw" data-label="วันที่แจ้ง">${date}</td>
+          <td data-label="ผู้แจ้ง"><div>${esc(t.ReporterName)}<br><span style="color:#78716C;font-size:11px">${esc(t.ReporterType)}</span></div></td>
+          <td class="nw" data-label="สถานที่">${esc(t.Location)}</td>
+          <td data-label="ประเภท">${esc(t.Category)}</td>
+          <td class="desc" data-label="รายละเอียด" style="max-width:260px">${esc(t.Description)}</td>
+          <td data-label="สถานะ"><select onchange="updateField('${t.TicketID}','status',this.value)">${statusOpts}</select></td>
+          <td data-label="ผู้รับผิดชอบ"><select onchange="updateField('${t.TicketID}','assignedTo',this.value)">${techOpts}</select></td>
+          <td class="nw" data-label="รูป">${photoLink}</td>
         </tr>`;
       }).join('');
     }
@@ -353,7 +443,7 @@
     function renderTechTable() {
       const body = document.getElementById('techBody');
       if (techniciansAll.length === 0) {
-        body.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#78716C;padding:30px">ยังไม่มีรายชื่อช่าง</td></tr>';
+        body.innerHTML = '<tr><td class="empty" colspan="5" style="text-align:center;color:#78716C;padding:30px">ยังไม่มีรายชื่อช่าง</td></tr>';
         return;
       }
       // นับงานที่ยังไม่ปิดของช่างแต่ละคน
@@ -367,13 +457,13 @@
 
       body.innerHTML = techniciansAll.map(t => `
         <tr class="${t.active ? '' : 'inactive'}">
-          <td><b>${esc(t.name)}</b></td>
-          <td>${esc(t.phone) || '-'}</td>
-          <td>
+          <td data-label="ชื่อช่าง"><b>${esc(t.name)}</b></td>
+          <td data-label="เบอร์โทร">${esc(t.phone) || '-'}</td>
+          <td data-label="สถานะ">
             <span class="badge ${t.active ? 'เสร็จสิ้น' : 'ยกเลิก'}">${t.active ? 'ใช้งาน' : 'ปิดใช้งาน'}</span>
           </td>
-          <td>${openJobs[t.name] || 0}</td>
-          <td style="white-space:nowrap">
+          <td data-label="งานที่ถืออยู่">${openJobs[t.name] || 0}</td>
+          <td class="actions" data-label="" style="white-space:nowrap">
             <span class="link" onclick="editTech(${t.row})">แก้ไข</span>
             &nbsp;
             <span class="link" onclick="toggleTech(${t.row}, ${t.active ? 'false' : 'true'})">${t.active ? 'ปิดใช้งาน' : 'เปิดใช้งาน'}</span>

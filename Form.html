@@ -199,6 +199,40 @@
       margin-right: 6px;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ================= RESPONSIVE ================= */
+
+    /* แท็บเล็ต / จอเล็ก */
+    @media (max-width: 600px) {
+      body { padding-bottom: 40px; }
+      .topbar { padding: 18px 16px; }
+      .topbar h1 { font-size: 19px; }
+      .topbar p { font-size: 12px; }
+      .topbar::after { width: 100px; height: 100px; right: -24px; top: -24px; }
+      .wrap { padding: 14px; }
+      .card { padding: 16px; }
+      /* 16px กันไม่ให้ iOS ซูมหน้าจอเองตอนแตะช่องกรอก */
+      input, select, textarea { font-size: 16px; padding: 12px; }
+      label { font-size: 13px; }
+      .submit-btn { padding: 16px; }
+      .stub { padding: 20px 16px; }
+      .stub .ticket-id { font-size: 22px; }
+    }
+
+    /* มือถือแนวตั้ง — ปุ่มเลือกประเภทผู้แจ้งวางซ้อนกันเพื่อให้ข้อความไม่ตกบรรทัด */
+    @media (max-width: 430px) {
+      .seg { flex-direction: column; }
+      .seg button { padding: 12px; font-size: 15px; }
+      .photo-row { flex-wrap: wrap; }
+      .photo-btn { flex: 1 1 100%; }
+      .photo-preview { width: 48px; height: 48px; }
+    }
+
+    /* จอกว้าง — ขยายการ์ดให้อ่านสบายขึ้นเล็กน้อย */
+    @media (min-width: 900px) {
+      .wrap { max-width: 620px; padding: 28px 20px; }
+      .card { padding: 26px; }
+    }
   </style>
 </head>
 <body>
