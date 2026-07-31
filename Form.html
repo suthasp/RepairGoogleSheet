@@ -225,7 +225,7 @@
       <input id="contact" placeholder="เช่น 08x-xxx-xxxx">
 
       <label class="req">สถานที่เกิดเหตุ</label>
-      <input id="location" placeholder="เช่น อาคาร A ชั้น 3 ห้องประชุม">
+      <select id="location"><option value="">กำลังโหลด...</option></select>
 
       <label class="req">ประเภทงานซ่อม</label>
       <select id="category"><option value="">กำลังโหลด...</option></select>
@@ -287,13 +287,41 @@
       reader.readAsDataURL(file);
     });
 
+    function esc(s) {
+      return String(s == null ? '' : s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+
+    // จัดกลุ่มสถานที่ตามรหัสหน้า (AGN-xxx, RN-xxx, ...) ให้เลือกง่ายขึ้น
+    function locationOptions(list) {
+      const groups = [];
+      const index = {};
+      list.forEach(code => {
+        const key = code.indexOf('-') > 0 ? code.split('-')[0] : 'อื่นๆ';
+        if (index[key] === undefined) {
+          index[key] = groups.length;
+          groups.push({ key: key, items: [] });
+        }
+        groups[index[key]].items.push(code);
+      });
+      return groups.map(g =>
+        `<optgroup label="${esc(g.key)}">` +
+        g.items.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('') +
+        '</optgroup>'
+      ).join('');
+    }
+
     google.script.run.withSuccessHandler(opts => {
+      const locSel = document.getElementById('location');
+      locSel.innerHTML = '<option value="">-- เลือกสถานที่ --</option>' +
+        locationOptions(opts.locations || []);
       const catSel = document.getElementById('category');
       catSel.innerHTML = '<option value="">-- เลือกประเภท --</option>' +
-        opts.categories.map(c => `<option value="${c}">${c}</option>`).join('');
+        opts.categories.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
       const prioSel = document.getElementById('priority');
       prioSel.innerHTML = opts.priorities.map((p, i) =>
-        `<option value="${p}" ${i===1?'selected':''}>${p}</option>`).join('');
+        `<option value="${esc(p)}" ${i===1?'selected':''}>${esc(p)}</option>`).join('');
     }).getFormOptions();
 
     document.getElementById('submitBtn').addEventListener('click', () => {

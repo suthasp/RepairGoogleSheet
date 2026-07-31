@@ -9,11 +9,23 @@
 const SHEET_REQUESTS = 'Requests';
 const SHEET_TECHNICIANS = 'Technicians';
 const SHEET_CATEGORIES = 'Categories';
+const SHEET_LOCATIONS = 'Locations';
 const SHEET_ADMIN = 'AdminConfig';
 const DRIVE_FOLDER_NAME = 'RepairSystem_Photos';
 
 const STATUS_LIST = ['รอดำเนินการ', 'กำลังซ่อม', 'เสร็จสิ้น', 'ปิดงาน', 'ยกเลิก'];
 const PRIORITY_LIST = ['ต่ำ', 'ปานกลาง', 'สูง', 'เร่งด่วน'];
+
+// รายชื่อสถานที่ (รหัสสาขา/หน่วยงาน) — แก้เพิ่ม/ลบได้ในชีท "Locations" ไม่ต้องแก้โค้ด
+const LOCATION_LIST = [
+  'AGN-ASD', 'AGN-BBT', 'AGN-BGC', 'AGN-BPL', 'AGN-CSW', 'AGN-DNM', 'AGN-LTP',
+  'AGN-PKK', 'AGN-PSN', 'AGN-PSP', 'AGN-PTT', 'AGN-RBN', 'AGN-RIT', 'AGN-TMM', 'AGN-TYB',
+  'CLS-SKA', 'CLS-STN',
+  'CN-MTG', 'CN-PBI', 'CN-TTW1', 'CN-TYB', 'CN-TYN',
+  'RN-AYT', 'RN-CBR', 'RN-CMI', 'RN-KKN', 'RN-NKR', 'RN-NKT', 'RN-PSN', 'RN-SKA', 'RN-SRT',
+  'TOC-BSN', 'TOC-HYI', 'TOC-KKN', 'TOC-LPN', 'TOC-NMA', 'TOC-PLK', 'TOC-PSI',
+  'TOC-RST', 'TOC-SNI', 'TOC-SNK'
+];
 
 // ============ SETUP (รันครั้งเดียวตอนติดตั้ง) ============
 function setupSpreadsheet() {
@@ -50,6 +62,9 @@ function setupSpreadsheet() {
   shC.setFrozenRows(1);
   shC.getRange('A1').setFontWeight('bold').setBackground('#4a86e8').setFontColor('white');
 
+  // --- Locations sheet ---
+  ensureLocationsSheet_();
+
   // --- AdminConfig sheet (เก็บ PIN สำหรับเข้าหน้าแอดมิน) ---
   let shA = ss.getSheetByName(SHEET_ADMIN);
   if (!shA) shA = ss.insertSheet(SHEET_ADMIN);
@@ -60,6 +75,41 @@ function setupSpreadsheet() {
 
   SpreadsheetApp.flush();
   SpreadsheetApp.getUi().alert('ตั้งค่าฐานข้อมูลเรียบร้อย! อย่าลืมเปลี่ยน PIN ในชีท "AdminConfig"');
+}
+
+/**
+ * สร้างชีท "Locations" + ใส่รายชื่อสถานที่ตั้งต้น
+ * ปลอดภัยกับข้อมูลเดิม: ถ้ามีชีทและมีข้อมูลอยู่แล้วจะไม่เขียนทับ
+ * ใช้สำหรับระบบที่ติดตั้งไปแล้ว — เลือกฟังก์ชันนี้แล้วกด Run (ห้ามรัน setupSpreadsheet ซ้ำ เพราะจะล้างข้อมูลแจ้งซ่อมทั้งหมด)
+ */
+function setupLocations() {
+  const added = ensureLocationsSheet_();
+  const msg = added > 0
+    ? `เพิ่มสถานที่ ${added} รายการในชีท "Locations" เรียบร้อย`
+    : 'ชีท "Locations" มีข้อมูลอยู่แล้ว ไม่มีการเปลี่ยนแปลง';
+  try { SpreadsheetApp.getUi().alert(msg); } catch (e) { console.log(msg); }
+}
+
+/** @return {number} จำนวนรายการที่เพิ่มเข้าไป (0 = มีข้อมูลอยู่แล้ว) */
+function ensureLocationsSheet_() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sh = ss.getSheetByName(SHEET_LOCATIONS);
+  if (!sh) {
+    sh = ss.insertSheet(SHEET_LOCATIONS);
+  }
+  if (sh.getLastRow() === 0) {
+    sh.appendRow(['LocationCode']);
+  }
+  sh.setFrozenRows(1);
+  sh.getRange('A1').setFontWeight('bold').setBackground('#4a86e8').setFontColor('white');
+
+  if (sh.getLastRow() > 1) return 0; // มีข้อมูลแล้ว ไม่แตะต้อง
+
+  sh.getRange(2, 1, LOCATION_LIST.length, 1)
+    .setValues(LOCATION_LIST.map(code => [code]));
+  sh.autoResizeColumn(1);
+  SpreadsheetApp.flush();
+  return LOCATION_LIST.length;
 }
 
 // ============ WEB APP ROUTING ============
@@ -109,7 +159,16 @@ function generateTicketId_() {
 function getFormOptions() {
   const shC = getSheet_(SHEET_CATEGORIES);
   const categories = shC.getDataRange().getValues().slice(1).map(r => r[0]).filter(String);
-  return { categories: categories, priorities: PRIORITY_LIST };
+  return { categories: categories, locations: getLocations_(), priorities: PRIORITY_LIST };
+}
+
+/** รายชื่อสถานที่จากชีท Locations (ถ้ายังไม่มีชีท ใช้ค่าตั้งต้นในโค้ด) */
+function getLocations_() {
+  const sh = getSheet_(SHEET_LOCATIONS);
+  if (!sh || sh.getLastRow() < 2) return LOCATION_LIST.slice();
+  return sh.getRange(2, 1, sh.getLastRow() - 1, 1).getValues()
+    .map(r => String(r[0]).trim())
+    .filter(String);
 }
 
 /**
@@ -121,6 +180,12 @@ function getFormOptions() {
 function submitTicket(data) {
   if (!data.reporterName || !data.location || !data.category || !data.description) {
     throw new Error('กรุณากรอกข้อมูลให้ครบถ้วน');
+  }
+
+  // สถานที่ต้องเป็นรหัสที่มีอยู่ในชีท Locations เท่านั้น (กันข้อมูลเพี้ยนตอนทำรายงาน)
+  const locations = getLocations_();
+  if (locations.indexOf(String(data.location).trim()) === -1) {
+    throw new Error('ไม่พบสถานที่ "' + data.location + '" ในระบบ กรุณาเลือกจากรายการ');
   }
 
   const sh = getSheet_(SHEET_REQUESTS);
