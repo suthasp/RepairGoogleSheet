@@ -20,6 +20,9 @@ const REQUEST_HEADERS = [
   'Status', 'Priority', 'AssignedTo', 'UpdatedAt', 'ClosedAt', 'Notes'
 ];
 
+// ประเภทผู้แจ้ง — ต้องตรงกับปุ่มในไฟล์ Form.html
+const REPORTER_TYPES = ['พนักงาน W&W', 'ลูกค้า TRUE & BBTEC'];
+
 const STATUS_LIST = ['รอดำเนินการ', 'กำลังซ่อม', 'เสร็จสิ้น', 'ปิดงาน', 'ยกเลิก'];
 const PRIORITY_LIST = ['ต่ำ', 'ปานกลาง', 'สูง', 'เร่งด่วน'];
 
@@ -245,7 +248,7 @@ function submitTicket(data) {
     TicketID: ticketId,
     SCCD: data.sccd || '',
     Timestamp: now,
-    ReporterType: data.reporterType || 'บุคคลทั่วไป',
+    ReporterType: data.reporterType || REPORTER_TYPES[1],
     ReporterName: data.reporterName,
     Contact: data.contact || '',
     Department: data.department || '',

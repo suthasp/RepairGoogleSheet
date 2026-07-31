@@ -211,8 +211,8 @@
     <div class="card" id="formCard">
       <label class="req">ประเภทผู้แจ้ง</label>
       <div class="seg" id="reporterTypeSeg">
-        <button type="button" data-val="พนักงานภายใน" class="active">พนักงานภายใน</button>
-        <button type="button" data-val="บุคคลทั่วไป">บุคคลทั่วไป</button>
+        <button type="button" data-val="พนักงาน W&amp;W" class="active">พนักงาน W&amp;W</button>
+        <button type="button" data-val="ลูกค้า TRUE &amp; BBTEC">ลูกค้า TRUE &amp; BBTEC</button>
       </div>
 
       <label class="req">ชื่อผู้แจ้ง</label>
@@ -261,7 +261,7 @@
 
   <script>
     let photoBase64 = null, photoMime = null, photoName = null;
-    let reporterType = 'พนักงานภายใน';
+    let reporterType = 'พนักงาน W&W';
 
     document.querySelectorAll('#reporterTypeSeg button').forEach(btn => {
       btn.addEventListener('click', () => {
