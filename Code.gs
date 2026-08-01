@@ -503,6 +503,7 @@ function getDashboardStats(pin) {
   const byStatus = {};
   const byCategory = {};
   const byLocation = {};
+  const byLocationDone = {};   // เฉพาะงานที่ "เสร็จสิ้น" แยกตามสถานที่
   let last7days = 0;
   const now = new Date();
 
@@ -514,6 +515,9 @@ function getDashboardStats(pin) {
     byStatus[status] = (byStatus[status] || 0) + 1;
     byCategory[category] = (byCategory[category] || 0) + 1;
     byLocation[location] = (byLocation[location] || 0) + 1;
+    if (status === 'เสร็จสิ้น') {
+      byLocationDone[location] = (byLocationDone[location] || 0) + 1;
+    }
 
     const ts = toDate_(row[tsCol]);
     if (ts && (now - ts) / (1000 * 60 * 60 * 24) <= 7) {
@@ -526,6 +530,7 @@ function getDashboardStats(pin) {
     byStatus: byStatus,
     byCategory: byCategory,
     byLocation: byLocation,
+    byLocationDone: byLocationDone,
     last7days: last7days
   };
 }
