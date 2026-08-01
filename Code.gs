@@ -497,10 +497,12 @@ function getDashboardStats(pin) {
   const headers = data[0];
   const statusCol = headers.indexOf('Status');
   const categoryCol = headers.indexOf('Category');
+  const locationCol = headers.indexOf('Location');
   const tsCol = headers.indexOf('Timestamp');
 
   const byStatus = {};
   const byCategory = {};
+  const byLocation = {};
   let last7days = 0;
   const now = new Date();
 
@@ -508,10 +510,13 @@ function getDashboardStats(pin) {
     const row = data[i];
     const status = row[statusCol] || 'ไม่ระบุ';
     const category = row[categoryCol] || 'ไม่ระบุ';
+    const location = (locationCol !== -1 && row[locationCol]) || 'ไม่ระบุ';
     byStatus[status] = (byStatus[status] || 0) + 1;
     byCategory[category] = (byCategory[category] || 0) + 1;
-    const ts = row[tsCol];
-    if (ts instanceof Date && (now - ts) / (1000 * 60 * 60 * 24) <= 7) {
+    byLocation[location] = (byLocation[location] || 0) + 1;
+
+    const ts = toDate_(row[tsCol]);
+    if (ts && (now - ts) / (1000 * 60 * 60 * 24) <= 7) {
       last7days++;
     }
   }
@@ -520,8 +525,17 @@ function getDashboardStats(pin) {
     total: data.length - 1,
     byStatus: byStatus,
     byCategory: byCategory,
+    byLocation: byLocation,
     last7days: last7days
   };
+}
+
+/** แปลงค่าจากชีทเป็น Date — รองรับทั้งเซลล์ชนิดวันที่และเซลล์ที่เก็บวันที่เป็นข้อความ */
+function toDate_(v) {
+  if (v instanceof Date) return v;
+  if (!v) return null;
+  const d = new Date(v);
+  return isNaN(d.getTime()) ? null : d;
 }
 
 function doPost(e) {

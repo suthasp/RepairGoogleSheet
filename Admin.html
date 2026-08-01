@@ -107,6 +107,9 @@
     .bar-row .top .n { font-weight: 700; }
     .bar-track { height: 10px; background: #EFECE6; border-radius: 6px; overflow: hidden; }
     .bar-fill { height: 100%; background: var(--orange); border-radius: 6px; min-width: 3px; }
+    .bars-more { font-size: 12px; color: var(--gray); margin-top: 12px; }
+    .chart-card.wide { margin-bottom: 24px; }
+    .chart-card.wide .bar-row .top .name { font-family: ui-monospace, Menlo, Consolas, monospace; }
 
     /* ---- Table ---- */
     .filters { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
@@ -384,6 +387,7 @@
           <div class="chart-card"><h3>งานตามสถานะ</h3><div id="statusChart"></div></div>
           <div class="chart-card"><h3>งานตามประเภท</h3><div id="categoryChart"></div></div>
         </div>
+        <div class="chart-card wide"><h3>งานตามสถานที่</h3><div id="locationChart"></div></div>
       </div>
 
       <div id="viewList" style="display:none">
@@ -551,7 +555,9 @@
       `;
 
       renderStatusDonut(stats.byStatus || {});
-      renderCategoryBars(stats.byCategory || {});
+      renderBars('categoryChart', stats.byCategory || {});
+      // สถานที่มีได้ถึง 41 รหัส แสดงเฉพาะ 12 อันดับแรกไม่ให้การ์ดยาวเกินไป
+      renderBars('locationChart', stats.byLocation || {}, 12, 'สถานที่');
     }
 
     // ---- กราฟ (วาดเอง ไม่ใช้ไลบรารีภายนอก) ----
@@ -604,21 +610,27 @@
       </div>`;
     }
 
-    function renderCategoryBars(byCategory) {
-      const box = document.getElementById('categoryChart');
-      const rows = Object.keys(byCategory)
-        .map(k => ({ name: k, val: byCategory[k] }))
+    /** กราฟแท่งแนวนอน — limit = แสดงกี่อันดับแรก (ไม่ใส่ = แสดงทั้งหมด) */
+    function renderBars(boxId, data, limit, unitWord) {
+      const box = document.getElementById(boxId);
+      const rows = Object.keys(data)
+        .map(k => ({ name: k, val: data[k] }))
         .filter(r => r.val)
         .sort((a, b) => b.val - a.val);
 
       if (!rows.length) { box.innerHTML = '<div class="chart-empty">ยังไม่มีข้อมูล</div>'; return; }
 
       const max = rows[0].val;
-      box.innerHTML = '<div class="bars">' + rows.map(r => `
+      const shown = limit ? rows.slice(0, limit) : rows;
+      const restCount = rows.length - shown.length;
+      const restVal = rows.slice(shown.length).reduce((s, r) => s + r.val, 0);
+
+      box.innerHTML = '<div class="bars">' + shown.map(r => `
         <div class="bar-row">
-          <div class="top"><span>${esc(r.name)}</span><span class="n">${r.val}</span></div>
+          <div class="top"><span class="name">${esc(r.name)}</span><span class="n">${r.val}</span></div>
           <div class="bar-track"><div class="bar-fill" style="width:${(r.val / max * 100).toFixed(1)}%"></div></div>
-        </div>`).join('') + '</div>';
+        </div>`).join('') + '</div>' +
+        (restCount ? `<div class="bars-more">และอีก ${restCount} ${esc(unitWord || 'รายการ')} รวม ${restVal} งาน</div>` : '');
     }
 
     // ชื่อหัวคอลัมน์ภาษาไทย — คอลัมน์ที่ไม่ได้อยู่ในนี้ (เช่นที่เพิ่มเองในชีทภายหลัง) จะใช้ชื่อจากชีทตรงๆ
