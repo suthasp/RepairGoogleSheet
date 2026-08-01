@@ -129,9 +129,26 @@
     .badge.ปิดงาน { background: #E0E7FF; color: #4338CA; }
     .badge.ยกเลิก { background: #FEE2E2; color: var(--danger); }
     td select { padding: 4px 6px; border-radius: 6px; border: 1px solid var(--line); font-size: 12px; }
-    /* ตารางเลื่อนแนวนอนได้อยู่แล้ว จึงไม่ตัดคำ ยกเว้นคอลัมน์ข้อความยาว */
+    /* ตารางเลื่อนแนวนอนได้อยู่แล้ว จึงไม่ตัดคำทุกคอลัมน์ */
     .table-wrap th, .table-wrap td { white-space: nowrap; }
-    .table-wrap th.desc, .table-wrap td.desc { white-space: normal; min-width: 180px; max-width: 320px; }
+    /* คอลัมน์ข้อความยาว: บรรทัดเดียวจบด้วย ... แล้วดูเต็มๆ ตอน hover */
+    .table-wrap td.desc { max-width: 320px; }
+    .table-wrap td.desc .cellv {
+      display: block; max-width: 320px;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      cursor: default;
+    }
+
+    /* กล่องข้อความเต็มตอน hover — วางที่ body + position:fixed จะได้ไม่ถูกกรอบตารางที่เลื่อนได้ตัดขอบ */
+    #cellTip {
+      display: none; position: fixed; z-index: 100; max-width: 420px;
+      background: var(--ink); color: #fff;
+      font-size: 12.5px; line-height: 1.55;
+      padding: 9px 11px; border-radius: 8px;
+      white-space: pre-wrap; overflow-wrap: anywhere;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.28);
+      pointer-events: none;
+    }
     .ticket-cell { font-family: ui-monospace, Menlo, Consolas, monospace; font-weight: 700; }
     .ticket-cell .sccd { font-weight: 400; font-size: 11px; color: var(--gray); }
     .prio {
@@ -243,8 +260,10 @@
       .table-wrap td[data-label=""]::before { display: none; }
       .table-wrap td.empty { display: block; text-align: center; }
       .table-wrap td.empty::before { display: none; }
-      .table-wrap td.desc { flex-direction: column; align-items: flex-start; text-align: left; }
+      /* ในโหมดการ์ด แสดงข้อความเต็มไปเลย ไม่ต้อง hover */
+      .table-wrap td.desc { flex-direction: column; align-items: flex-start; text-align: left; max-width: none; }
       .table-wrap td.desc::before { margin-bottom: 2px; }
+      .table-wrap td.desc .cellv { max-width: none; white-space: normal; overflow: visible; }
       .table-wrap td select { font-size: 14px; padding: 7px 8px; max-width: 60%; }
       .table-wrap td[style*="max-width"] { max-width: none !important; }
       .table-wrap .actions { justify-content: flex-end; gap: 14px; }
@@ -516,7 +535,10 @@
       if (h === 'Priority' && raw) {
         return `<span class="prio ${esc(raw)}">${esc(raw)}</span>`;
       }
-      return raw === '' || raw === null || raw === undefined ? '-' : esc(raw);
+      if (raw === '' || raw === null || raw === undefined) return '-';
+      // ข้อความยาว ครอบด้วย .cellv เพื่อตัดเป็นบรรทัดเดียว + ใช้เป็นจุดจับ tooltip
+      if (WRAP_COLS.indexOf(h) !== -1) return `<span class="cellv">${esc(raw)}</span>`;
+      return esc(raw);
     }
 
     function renderTable() {
@@ -553,6 +575,49 @@
         return `<td class="${cls}" data-label="${esc(labelOf(h))}">${cellHtml(t, h)}</td>`;
       }).join('') + '</tr>').join('');
     }
+
+    // ---- tooltip แสดงข้อความเต็มของเซลล์ที่ถูกตัด ----
+    (function initCellTip() {
+      const tip = document.createElement('div');
+      tip.id = 'cellTip';
+      document.body.appendChild(tip);
+
+      function hide() { tip.style.display = 'none'; }
+
+      function show(el) {
+        tip.textContent = el.textContent;
+        tip.style.display = 'block';
+        tip.style.left = '0px';
+        tip.style.top = '0px';
+
+        // วัดขนาดหลังใส่ข้อความแล้วค่อยจัดตำแหน่ง ไม่ให้ล้นขอบจอ
+        const r = el.getBoundingClientRect();
+        const w = tip.offsetWidth, h = tip.offsetHeight;
+        const pad = 8;
+        let left = r.left;
+        if (left + w + pad > window.innerWidth) left = window.innerWidth - w - pad;
+        if (left < pad) left = pad;
+        let top = r.bottom + 6;
+        if (top + h + pad > window.innerHeight) top = r.top - h - 6;   // ไม่พอด้านล่างก็ไปด้านบน
+        if (top < pad) top = pad;
+        tip.style.left = left + 'px';
+        tip.style.top = top + 'px';
+      }
+
+      document.addEventListener('mouseover', e => {
+        const el = e.target && e.target.closest ? e.target.closest('.cellv') : null;
+        if (!el) return;
+        // แสดงเฉพาะเซลล์ที่ข้อความถูกตัดจริงๆ
+        if (el.scrollWidth <= el.clientWidth + 1) return;
+        show(el);
+      });
+      document.addEventListener('mouseout', e => {
+        if (e.target && e.target.closest && e.target.closest('.cellv')) hide();
+      });
+      // เลื่อนตารางหรือหน้าจอแล้วให้กล่องหายไป ไม่ค้างผิดที่
+      document.addEventListener('scroll', hide, true);
+      window.addEventListener('resize', hide);
+    })();
 
     function updateField(ticketId, field, value) {
       const updates = {};
