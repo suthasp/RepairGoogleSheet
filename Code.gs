@@ -23,7 +23,7 @@ const REQUEST_HEADERS = [
 // ประเภทผู้แจ้ง — ต้องตรงกับปุ่มในไฟล์ Form.html
 const REPORTER_TYPES = ['พนักงาน W&W', 'ลูกค้า TRUE & BBTEC'];
 
-const STATUS_LIST = ['รอดำเนินการ', 'กำลังซ่อม', 'เสร็จสิ้น', 'ปิดงาน', 'ยกเลิก'];
+const STATUS_LIST = ['รอดำเนินการ', 'กำลังซ่อม', 'เสร็จสิ้น', 'ยกเลิก'];
 const PRIORITY_LIST = ['ต่ำ', 'ปานกลาง', 'สูง', 'เร่งด่วน'];
 
 // รายชื่อสถานที่ (รหัสสาขา/หน่วยงาน) — แก้เพิ่ม/ลบได้ในชีท "Locations" ไม่ต้องแก้โค้ด
@@ -465,7 +465,7 @@ function updateTicket(pin, ticketId, updates) {
       const now = new Date();
       if (updates.status !== undefined) {
         sh.getRange(rowNum, statusCol + 1).setValue(updates.status);
-        if (updates.status === 'เสร็จสิ้น' || updates.status === 'ปิดงาน') {
+        if (updates.status === 'เสร็จสิ้น') {
           sh.getRange(rowNum, closedCol + 1).setValue(now);
         }
       }

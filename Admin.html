@@ -307,14 +307,7 @@
       <div id="viewList" style="display:none">
         <div class="filters">
           <input id="searchBox" placeholder="ค้นหาจากทุกคอลัมน์ (Ticket / SCCD / ชื่อ / สถานที่ ...)">
-          <select id="statusFilter">
-            <option value="">ทุกสถานะ</option>
-            <option>รอดำเนินการ</option>
-            <option>กำลังซ่อม</option>
-            <option>เสร็จสิ้น</option>
-            <option>ปิดงาน</option>
-            <option>ยกเลิก</option>
-          </select>
+          <select id="statusFilter"><option value="">ทุกสถานะ</option></select>
           <span class="link" id="refreshBtn">🔄 รีเฟรช</span>
         </div>
         <div class="table-wrap">
@@ -365,6 +358,14 @@
     let technicians = [];      // ชื่อช่างที่เปิดใช้งาน (สำหรับ dropdown มอบหมาย)
     let techniciansAll = [];   // ข้อมูลช่างทั้งหมด (สำหรับแท็บจัดการช่าง)
 
+    // สถานะที่เลือกได้ — ต้องตรงกับ STATUS_LIST ใน Code.gs
+    const STATUS_OPTIONS = ['รอดำเนินการ', 'กำลังซ่อม', 'เสร็จสิ้น', 'ยกเลิก'];
+    const CLOSED_STATUSES = ['เสร็จสิ้น', 'ยกเลิก', 'ปิดงาน'];  // 'ปิดงาน' = ข้อมูลเก่า
+
+    document.getElementById('statusFilter').innerHTML =
+      '<option value="">ทุกสถานะ</option>' +
+      STATUS_OPTIONS.map(s => `<option>${s}</option>`).join('');
+
     function esc(s) {
       return String(s == null ? '' : s)
         .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -413,7 +414,7 @@
         <div class="stat-card"><div class="num">${stats.total}</div><div class="label">งานทั้งหมด</div></div>
         <div class="stat-card pending"><div class="num">${stats.byStatus['รอดำเนินการ']||0}</div><div class="label">รอดำเนินการ</div></div>
         <div class="stat-card progress"><div class="num">${stats.byStatus['กำลังซ่อม']||0}</div><div class="label">กำลังซ่อม</div></div>
-        <div class="stat-card done"><div class="num">${(stats.byStatus['เสร็จสิ้น']||0)+(stats.byStatus['ปิดงาน']||0)}</div><div class="label">เสร็จสิ้น/ปิดงาน</div></div>
+        <div class="stat-card done"><div class="num">${stats.byStatus['เสร็จสิ้น']||0}</div><div class="label">เสร็จสิ้น</div></div>
         <div class="stat-card week"><div class="num">${stats.last7days}</div><div class="label">แจ้งใน 7 วันล่าสุด</div></div>
       `;
 
@@ -422,6 +423,7 @@
     }
 
     // ---- กราฟ (วาดเอง ไม่ใช้ไลบรารีภายนอก) ----
+    // 'ปิดงาน' เลิกใช้แล้ว แต่คงสีไว้เผื่อมีข้อมูลเก่าในชีท
     const STATUS_COLORS = {
       'รอดำเนินการ': '#78716C', 'กำลังซ่อม': '#2563EB', 'เสร็จสิ้น': '#0F766E',
       'ปิดงาน': '#4338CA', 'ยกเลิก': '#B91C1C'
@@ -431,9 +433,8 @@
     function renderStatusDonut(byStatus) {
       const box = document.getElementById('statusChart');
       // เรียงตามลำดับสถานะมาตรฐานก่อน แล้วต่อด้วยค่าแปลกๆ ที่อาจมีในชีท
-      const known = ['รอดำเนินการ','กำลังซ่อม','เสร็จสิ้น','ปิดงาน','ยกเลิก'];
-      const keys = known.filter(k => byStatus[k])
-        .concat(Object.keys(byStatus).filter(k => known.indexOf(k) === -1 && byStatus[k]));
+      const keys = STATUS_OPTIONS.filter(k => byStatus[k])
+        .concat(Object.keys(byStatus).filter(k => STATUS_OPTIONS.indexOf(k) === -1 && byStatus[k]));
       const total = keys.reduce((s, k) => s + byStatus[k], 0);
 
       if (!total) { box.innerHTML = '<div class="chart-empty">ยังไม่มีข้อมูล</div>'; return; }
@@ -517,8 +518,12 @@
         return raw ? `<a class="link" href="${esc(raw)}" target="_blank" rel="noopener">ดูรูป</a>` : '-';
       }
       if (h === 'Status') {
-        const opts = ['รอดำเนินการ','กำลังซ่อม','เสร็จสิ้น','ปิดงาน','ยกเลิก']
-          .map(s => `<option value="${s}" ${raw===s?'selected':''}>${s}</option>`).join('');
+        // ถ้างานเก่ามีสถานะที่เลิกใช้แล้ว (เช่น "ปิดงาน") ให้คงไว้ในตัวเลือก จะได้ไม่ถูกเปลี่ยนค่าเงียบๆ
+        const cur = String(raw || '').trim();
+        const list = STATUS_OPTIONS.slice();
+        if (cur && list.indexOf(cur) === -1) list.push(cur);
+        const opts = list
+          .map(s => `<option value="${esc(s)}" ${cur===s?'selected':''}>${esc(s)}</option>`).join('');
         return `<select onchange="updateField('${t.TicketID}','status',this.value)">${opts}</select>`;
       }
       if (h === 'AssignedTo') {
@@ -640,7 +645,7 @@
       allTickets.forEach(t => {
         const name = (t.AssignedTo || '').trim();
         if (!name) return;
-        if (t.Status === 'เสร็จสิ้น' || t.Status === 'ปิดงาน' || t.Status === 'ยกเลิก') return;
+        if (CLOSED_STATUSES.indexOf(t.Status) !== -1) return;
         openJobs[name] = (openJobs[name] || 0) + 1;
       });
 
