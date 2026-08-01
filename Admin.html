@@ -158,19 +158,90 @@
     .prio.สูง { background: #FFEDD5; color: #C2410C; }
     .prio.เร่งด่วน { background: #FEE2E2; color: var(--danger); }
 
-    /* ตารางกว้างกว่าจอ — ตรึงคอลัมน์ Ticket ไว้ซ้ายมือขณะเลื่อนแนวนอน */
+    /* ตารางกว้างกว่าจอ — ตรึงคอลัมน์ Ticket ไว้ซ้าย และคอลัมน์จัดการไว้ขวา
+       จะได้เห็นว่ากำลังดูงานไหนและกดปุ่มอัปเดตได้โดยไม่ต้องเลื่อนสุดทาง */
     @media (min-width: 901px) {
-      .table-wrap th:first-child, .table-wrap td:first-child {
-        position: sticky; left: 0; z-index: 1;
-        box-shadow: 1px 0 0 var(--line);
+      .table-wrap th:first-child, .table-wrap td:first-child,
+      .table-wrap th:last-child, .table-wrap td:last-child {
+        position: sticky; z-index: 1;
       }
-      .table-wrap td:first-child { background: var(--card); }
-      .table-wrap th:first-child { background: #EFECE6; z-index: 2; }
-      .table-wrap tr:hover td:first-child { background: #FFFBF7; }
+      .table-wrap th:first-child, .table-wrap td:first-child {
+        left: 0; box-shadow: 1px 0 0 var(--line);
+      }
+      .table-wrap th:last-child, .table-wrap td:last-child {
+        right: 0; box-shadow: -1px 0 0 var(--line);
+      }
+      .table-wrap td:first-child, .table-wrap td:last-child { background: var(--card); }
+      .table-wrap th:first-child, .table-wrap th:last-child { background: #EFECE6; z-index: 2; }
+      .table-wrap tr:hover td:first-child, .table-wrap tr:hover td:last-child { background: #FFFBF7; }
     }
     .link { color: var(--blue); text-decoration: underline; cursor: pointer; font-size: 12px; }
     .link.danger { color: var(--danger); }
     #loadingRow td { text-align: center; color: var(--gray); padding: 30px; }
+
+    /* ---- ปุ่มอัปเดตในตาราง ---- */
+    .btn-upd {
+      background: var(--orange); color: #fff; border: none;
+      padding: 6px 12px; border-radius: 6px; cursor: pointer;
+      font-family: inherit; font-size: 12px; font-weight: 700; white-space: nowrap;
+    }
+    .btn-upd:hover { background: #C74A08; }
+
+    /* ---- หน้าต่างอัปเดต ---- */
+    .modal-back {
+      display: none; position: fixed; inset: 0; z-index: 200;
+      background: rgba(28, 25, 23, 0.55); padding: 20px; overflow-y: auto;
+    }
+    .modal-back.open { display: flex; align-items: flex-start; justify-content: center; }
+    .modal {
+      background: var(--card); border-radius: 14px; width: 100%; max-width: 980px; margin: auto;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.32); overflow: hidden;
+    }
+    .modal-head {
+      display: flex; justify-content: space-between; align-items: flex-start; gap: 12px;
+      padding: 16px 22px; background: #FFF3EC; border-bottom: 1px solid var(--line);
+    }
+    .modal-head h2 { margin: 0; font-size: 17px; color: #C74A08; }
+    .modal-head .ref { font-size: 12px; color: var(--gray); margin-top: 4px; }
+    .modal-head .ref b { font-family: ui-monospace, Menlo, Consolas, monospace; color: var(--ink); }
+    .modal-x {
+      background: none; border: none; font-size: 20px; line-height: 1;
+      color: var(--gray); cursor: pointer; padding: 2px 6px;
+    }
+    .modal-body { display: grid; grid-template-columns: 1fr 370px; }
+    .panel { padding: 18px 22px; }
+    .panel h3 { margin: 0 0 14px; font-size: 13px; color: var(--gray); }
+    .panel.edit { background: #FDFAF6; border-left: 1px solid var(--line); }
+    .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 16px; }
+    .fld.wide { grid-column: 1 / -1; }
+    .fld > label { display: block; font-size: 11px; font-weight: 700; color: var(--gray); margin-bottom: 4px; }
+    .fld .val {
+      font-size: 13px; background: var(--paper); border: 1px solid var(--line);
+      border-radius: 7px; padding: 8px 10px; min-height: 35px;
+      white-space: pre-wrap; overflow-wrap: anywhere;
+    }
+    .panel.edit .fld { margin-bottom: 13px; }
+    .panel.edit input, .panel.edit select, .panel.edit textarea {
+      width: 100%; padding: 9px 10px; border: 1.5px solid var(--line); border-radius: 7px;
+      font-family: inherit; font-size: 13.5px; background: #fff; color: var(--ink);
+    }
+    .panel.edit textarea { min-height: 96px; resize: vertical; }
+    .panel.edit input:focus, .panel.edit select:focus, .panel.edit textarea:focus {
+      outline: none; border-color: var(--orange);
+    }
+    .modal-foot {
+      display: flex; align-items: center; gap: 10px;
+      padding: 14px 22px; border-top: 1px solid var(--line); background: #FAF9F6;
+    }
+    .modal-foot .msg { flex: 1; font-size: 12.5px; }
+    .btn {
+      padding: 10px 18px; border-radius: 8px; font-family: inherit;
+      font-size: 13.5px; font-weight: 700; cursor: pointer; border: 1.5px solid transparent;
+    }
+    .btn.ghost { background: #fff; border-color: var(--line); color: var(--gray); }
+    .btn.primary { background: var(--orange); color: #fff; }
+    .btn.primary:hover { background: #C74A08; }
+    .btn:disabled { opacity: 0.55; cursor: default; }
 
     /* ---- ฟอร์มเพิ่มช่าง ---- */
     .tech-add {
@@ -269,6 +340,17 @@
       .table-wrap .actions { justify-content: flex-end; gap: 14px; }
       .table-wrap .link { font-size: 13px; }
 
+      /* หน้าต่างอัปเดต: สองฝั่งวางซ้อนกัน */
+      .modal-back { padding: 0; }
+      .modal { max-width: none; border-radius: 0; min-height: 100%; }
+      .modal-body { grid-template-columns: 1fr; }
+      .panel.edit { border-left: none; border-top: 1px solid var(--line); }
+      .grid2 { grid-template-columns: 1fr; }
+      .panel.edit input, .panel.edit select, .panel.edit textarea { font-size: 16px; }
+      .modal-foot { position: sticky; bottom: 0; flex-wrap: wrap; }
+      .modal-foot .msg { flex-basis: 100%; }
+      .modal-foot .btn { flex: 1; }
+
       .tech-add { padding: 14px; }
       .tech-add .field { flex: 1 1 100%; }
       .tech-add input { min-width: 0; width: 100%; font-size: 16px; }
@@ -347,6 +429,56 @@
         <p style="font-size:12px;color:#78716C">
           ช่างที่ <b>ปิดใช้งาน</b> จะไม่แสดงในช่อง "ผู้รับผิดชอบ" ของงานใหม่ แต่ประวัติงานเดิมยังคงอยู่
         </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- หน้าต่างอัปเดตข้อมูลแจ้งซ่อม -->
+  <div class="modal-back" id="editModal">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="mTitle">
+      <div class="modal-head">
+        <div>
+          <h2 id="mTitle">✏️ อัปเดตข้อมูลแจ้งซ่อม</h2>
+          <div class="ref">รหัสอ้างอิง: <b id="mTicket">-</b></div>
+        </div>
+        <button class="modal-x" id="mClose" title="ปิด">✕</button>
+      </div>
+
+      <div class="modal-body">
+        <div class="panel">
+          <h3>ℹ️ ข้อมูลเบื้องต้น (จากผู้แจ้ง)</h3>
+          <div class="grid2" id="mInfo"></div>
+        </div>
+
+        <div class="panel edit">
+          <h3>✅ ส่วนสำหรับอัปเดต</h3>
+          <div class="fld">
+            <label for="mStatus">สถานะปัจจุบัน</label>
+            <select id="mStatus"></select>
+          </div>
+          <div class="fld">
+            <label for="mAssigned">ผู้รับผิดชอบ</label>
+            <select id="mAssigned"></select>
+          </div>
+          <div class="fld">
+            <label for="mPriority">ความเร่งด่วน</label>
+            <select id="mPriority"></select>
+          </div>
+          <div class="fld">
+            <label for="mSccd">เลขที่ SCCD / ITSM</label>
+            <input id="mSccd" maxlength="50" placeholder="เลขอ้างอิงจากระบบ SCCD/ITSM">
+          </div>
+          <div class="fld">
+            <label for="mNotes">หมายเหตุ / ความคืบหน้า</label>
+            <textarea id="mNotes" placeholder="เช่น ตรวจสอบแล้วพบ compressor เสีย รออะไหล่"></textarea>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-foot">
+        <span class="msg" id="mMsg"></span>
+        <button class="btn ghost" id="mCancel">ปิดหน้าต่าง</button>
+        <button class="btn primary" id="mSave">💾 บันทึกลงฐานข้อมูล</button>
       </div>
     </div>
   </div>
@@ -554,7 +686,8 @@
       const cols = ticketHeaders.length ? ticketHeaders : ['TicketID'];
 
       head.innerHTML = '<tr>' + cols.map(h =>
-        `<th class="${WRAP_COLS.indexOf(h) !== -1 ? 'desc' : ''}">${esc(labelOf(h))}</th>`).join('') + '</tr>';
+        `<th class="${WRAP_COLS.indexOf(h) !== -1 ? 'desc' : ''}">${esc(labelOf(h))}</th>`).join('')
+        + '<th>จัดการ</th></tr>';
 
       const filtered = allTickets.filter(t => {
         // ค้นหาจากทุกคอลัมน์
@@ -568,7 +701,7 @@
         : '';
 
       if (filtered.length === 0) {
-        body.innerHTML = `<tr><td class="empty" colspan="${cols.length}" style="text-align:center;color:#78716C;padding:30px">ไม่พบรายการ</td></tr>`;
+        body.innerHTML = `<tr><td class="empty" colspan="${cols.length + 1}" style="text-align:center;color:#78716C;padding:30px">ไม่พบรายการ</td></tr>`;
         return;
       }
 
@@ -578,8 +711,100 @@
           WRAP_COLS.indexOf(h) !== -1 ? 'desc' : ''
         ].filter(String).join(' ');
         return `<td class="${cls}" data-label="${esc(labelOf(h))}">${cellHtml(t, h)}</td>`;
-      }).join('') + '</tr>').join('');
+      }).join('')
+        + `<td class="actions" data-label=""><button class="btn-upd" onclick="openEdit('${esc(t.TicketID)}')">✏️ อัปเดต</button></td>`
+        + '</tr>').join('');
     }
+
+    // ---- หน้าต่างอัปเดตข้อมูล ----
+    const PRIORITY_OPTIONS = ['ต่ำ', 'ปานกลาง', 'สูง', 'เร่งด่วน'];
+    const EDITABLE_COLS = ['SCCD', 'Status', 'Priority', 'AssignedTo', 'Notes'];
+    let editingId = null;
+
+    /** สร้าง <option> โดยคงค่าเดิมไว้เสมอ แม้ค่านั้นจะไม่อยู่ในลิสต์แล้ว */
+    function optionsHtml(list, current, placeholder) {
+      const cur = String(current == null ? '' : current).trim();
+      const items = list.slice();
+      if (cur && items.indexOf(cur) === -1) items.push(cur);
+      return (placeholder ? `<option value="">${esc(placeholder)}</option>` : '') +
+        items.map(v => `<option value="${esc(v)}" ${cur === v ? 'selected' : ''}>${esc(v)}</option>`).join('');
+    }
+
+    function openEdit(ticketId) {
+      const t = allTickets.find(x => String(x.TicketID) === String(ticketId));
+      if (!t) { alert('ไม่พบข้อมูลงานนี้ ลองกดรีเฟรช'); return; }
+      editingId = t.TicketID;
+
+      document.getElementById('mTicket').textContent = t.TicketID;
+      modalMsg('', false);
+
+      // ฝั่งซ้าย: ทุกคอลัมน์ที่ไม่ได้ให้แก้ในหน้านี้
+      const infoCols = (ticketHeaders.length ? ticketHeaders : [])
+        .filter(h => h !== 'TicketID' && EDITABLE_COLS.indexOf(h) === -1);
+      document.getElementById('mInfo').innerHTML = infoCols.map(h => {
+        let v;
+        if (DATE_COLS.indexOf(h) !== -1) v = fmtDate(t[h]);
+        else if (h === 'PhotoURL') v = t[h] ? `<a class="link" href="${esc(t[h])}" target="_blank" rel="noopener">เปิดรูปภาพ</a>` : '-';
+        else v = (t[h] === '' || t[h] == null) ? '-' : esc(t[h]);
+        const wide = (h === 'Description') ? ' wide' : '';
+        return `<div class="fld${wide}"><label>${esc(labelOf(h))}</label><div class="val">${v}</div></div>`;
+      }).join('');
+
+      // ฝั่งขวา: ช่องที่แก้ได้
+      document.getElementById('mStatus').innerHTML = optionsHtml(STATUS_OPTIONS, t.Status);
+      document.getElementById('mAssigned').innerHTML =
+        optionsHtml(technicians, t.AssignedTo, '-- ยังไม่มอบหมาย --');
+      document.getElementById('mPriority').innerHTML = optionsHtml(PRIORITY_OPTIONS, t.Priority);
+      document.getElementById('mSccd').value = t.SCCD == null ? '' : String(t.SCCD);
+      document.getElementById('mNotes').value = t.Notes == null ? '' : String(t.Notes);
+
+      document.getElementById('editModal').classList.add('open');
+      document.getElementById('mStatus').focus();
+    }
+
+    function closeEdit() {
+      document.getElementById('editModal').classList.remove('open');
+      editingId = null;
+    }
+
+    function modalMsg(text, isError) {
+      const el = document.getElementById('mMsg');
+      el.textContent = text || '';
+      el.style.color = isError ? 'var(--danger)' : 'var(--teal)';
+    }
+
+    function saveEdit() {
+      if (!editingId) return;
+      const btn = document.getElementById('mSave');
+      btn.disabled = true;
+      modalMsg('กำลังบันทึก...', false);
+
+      google.script.run
+        .withSuccessHandler(() => {
+          btn.disabled = false;
+          closeEdit();
+          loadAll();
+        })
+        .withFailureHandler(err => { btn.disabled = false; modalMsg('บันทึกไม่สำเร็จ: ' + err.message, true); })
+        .updateTicket(PIN, editingId, {
+          status: document.getElementById('mStatus').value,
+          assignedTo: document.getElementById('mAssigned').value,
+          priority: document.getElementById('mPriority').value,
+          sccd: document.getElementById('mSccd').value.trim(),
+          notes: document.getElementById('mNotes').value.trim()
+        });
+    }
+
+    document.getElementById('mSave').addEventListener('click', saveEdit);
+    document.getElementById('mCancel').addEventListener('click', closeEdit);
+    document.getElementById('mClose').addEventListener('click', closeEdit);
+    // คลิกพื้นหลังนอกกล่อง หรือกด Esc = ปิด
+    document.getElementById('editModal').addEventListener('click', e => {
+      if (e.target.id === 'editModal') closeEdit();
+    });
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape' && document.getElementById('editModal').classList.contains('open')) closeEdit();
+    });
 
     // ---- tooltip แสดงข้อความเต็มของเซลล์ที่ถูกตัด ----
     (function initCellTip() {

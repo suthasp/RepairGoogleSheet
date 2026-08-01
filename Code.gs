@@ -447,35 +447,43 @@ function renameAssignedTo_(oldName, newName) {
   }
 }
 
+// ฟิลด์ที่หน้าแอดมินแก้ไขได้ → ชื่อคอลัมน์ในชีท
+const EDITABLE_FIELDS = {
+  status: 'Status',
+  assignedTo: 'AssignedTo',
+  priority: 'Priority',
+  sccd: 'SCCD',
+  notes: 'Notes'
+};
+
 function updateTicket(pin, ticketId, updates) {
   if (!checkAdminPin(pin)) throw new Error('PIN ไม่ถูกต้อง');
   const sh = getSheet_(SHEET_REQUESTS);
   const data = sh.getDataRange().getValues();
-  const headers = data[0];
+  const headers = data[0].map(h => String(h).trim());
   const idCol = headers.indexOf('TicketID');
-  const statusCol = headers.indexOf('Status');
-  const assignedCol = headers.indexOf('AssignedTo');
   const updatedCol = headers.indexOf('UpdatedAt');
   const closedCol = headers.indexOf('ClosedAt');
-  const notesCol = headers.indexOf('Notes');
 
   for (let i = 1; i < data.length; i++) {
     if (data[i][idCol] === ticketId) {
       const rowNum = i + 1;
       const now = new Date();
-      if (updates.status !== undefined) {
-        sh.getRange(rowNum, statusCol + 1).setValue(updates.status);
-        if (updates.status === 'เสร็จสิ้น') {
-          sh.getRange(rowNum, closedCol + 1).setValue(now);
-        }
+
+      Object.keys(EDITABLE_FIELDS).forEach(key => {
+        if (updates[key] === undefined) return;
+        const col = headers.indexOf(EDITABLE_FIELDS[key]);
+        if (col === -1) return;   // ชีทไม่มีคอลัมน์นี้ (เช่นยังไม่ได้รัน migrateAddSccdColumn)
+        sh.getRange(rowNum, col + 1).setValue(updates[key]);
+      });
+
+      // ปิดงานเมื่อ = เวลาที่สถานะเปลี่ยนเป็น "เสร็จสิ้น" / ถ้าเปิดงานใหม่ให้ล้างค่าเดิมทิ้ง
+      if (updates.status !== undefined && closedCol !== -1) {
+        sh.getRange(rowNum, closedCol + 1)
+          .setValue(updates.status === 'เสร็จสิ้น' ? now : '');
       }
-      if (updates.assignedTo !== undefined) {
-        sh.getRange(rowNum, assignedCol + 1).setValue(updates.assignedTo);
-      }
-      if (updates.notes !== undefined) {
-        sh.getRange(rowNum, notesCol + 1).setValue(updates.notes);
-      }
-      sh.getRange(rowNum, updatedCol + 1).setValue(now);
+      if (updatedCol !== -1) sh.getRange(rowNum, updatedCol + 1).setValue(now);
+
       return { success: true };
     }
   }
