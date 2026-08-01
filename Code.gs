@@ -322,19 +322,27 @@ function checkAdminPin(pin) {
   return String(pin) === correctPin;
 }
 
+/**
+ * คืนข้อมูลงานทั้งหมด พร้อมรายชื่อหัวคอลัมน์ตามที่มีจริงในชีท
+ * @return {{headers: string[], rows: Object[]}}
+ */
 function getAllTickets(pin) {
   if (!checkAdminPin(pin)) throw new Error('PIN ไม่ถูกต้อง');
   const sh = getSheet_(SHEET_REQUESTS);
   const values = sh.getDataRange().getValues();
-  const headers = values[0];
+  const rawHeaders = values[0].map(h => String(h).trim());
+  const headers = rawHeaders.filter(String); // ตัดคอลัมน์ที่ไม่มีชื่อหัวออก
+
   const rows = values.slice(1).map(row => {
     const obj = {};
-    headers.forEach((h, i) => {
+    rawHeaders.forEach((h, i) => {
+      if (!h) return;
       obj[h] = row[i] instanceof Date ? row[i].toISOString() : row[i];
     });
     return obj;
   });
-  return rows.reverse(); // ใหม่สุดก่อน
+
+  return { headers: headers, rows: rows.reverse() }; // ใหม่สุดก่อน
 }
 
 // รับค่า Active ได้ทั้งแบบ checkbox (true) และแบบพิมพ์ข้อความ (TRUE / ใช่ / 1)

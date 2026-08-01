@@ -68,7 +68,8 @@
     }
     .tabs button.active { background: rgba(255,255,255,0.15); color: #fff; font-weight: 700; }
 
-    .container { max-width: 1100px; margin: 0 auto; padding: 24px; }
+    .container { max-width: 1500px; margin: 0 auto; padding: 24px; }
+    .hint { font-size: 12px; color: var(--gray); margin: 10px 2px 0; }
 
     .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 20px; }
     .stat-card {
@@ -94,7 +95,9 @@
       padding: 8px 10px; border: 1.5px solid var(--line); border-radius: 6px; font-family: inherit; font-size: 13px;
     }
     #searchBox { min-width: 260px; }
-    table { width: 100%; border-collapse: collapse; background: var(--card); border-radius: 10px; overflow: hidden; }
+    /* separate + spacing 0 ให้ผลเหมือน collapse แต่ position:sticky บนเซลล์ถึงจะทำงาน
+       และห้ามใส่ overflow บน table เพราะจะทำให้เซลล์ sticky ยึดกับตารางแทนกรอบที่เลื่อน */
+    table { width: 100%; border-collapse: separate; border-spacing: 0; background: var(--card); }
     th, td { text-align: left; padding: 10px 12px; font-size: 13px; border-bottom: 1px solid var(--line); }
     th { background: #EFECE6; color: var(--gray); font-weight: 700; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
     tr:hover { background: #FFFBF7; }
@@ -107,10 +110,28 @@
     .badge.ปิดงาน { background: #E0E7FF; color: #4338CA; }
     .badge.ยกเลิก { background: #FEE2E2; color: var(--danger); }
     td select { padding: 4px 6px; border-radius: 6px; border: 1px solid var(--line); font-size: 12px; }
-    /* คอลัมน์ที่ห้ามตัดคำ ไม่งั้นบนจอแคบจะแตกเป็นบรรทัดละคำ */
-    td.nw, td.ticket-cell { white-space: nowrap; }
+    /* ตารางเลื่อนแนวนอนได้อยู่แล้ว จึงไม่ตัดคำ ยกเว้นคอลัมน์ข้อความยาว */
+    .table-wrap th, .table-wrap td { white-space: nowrap; }
+    .table-wrap th.desc, .table-wrap td.desc { white-space: normal; min-width: 180px; max-width: 320px; }
     .ticket-cell { font-family: ui-monospace, Menlo, Consolas, monospace; font-weight: 700; }
     .ticket-cell .sccd { font-weight: 400; font-size: 11px; color: var(--gray); }
+    .prio {
+      display: inline-block; padding: 2px 8px; border-radius: 20px;
+      font-size: 11px; font-weight: 700; background: #EFECE6; color: var(--gray);
+    }
+    .prio.สูง { background: #FFEDD5; color: #C2410C; }
+    .prio.เร่งด่วน { background: #FEE2E2; color: var(--danger); }
+
+    /* ตารางกว้างกว่าจอ — ตรึงคอลัมน์ Ticket ไว้ซ้ายมือขณะเลื่อนแนวนอน */
+    @media (min-width: 901px) {
+      .table-wrap th:first-child, .table-wrap td:first-child {
+        position: sticky; left: 0; z-index: 1;
+        box-shadow: 1px 0 0 var(--line);
+      }
+      .table-wrap td:first-child { background: var(--card); }
+      .table-wrap th:first-child { background: #EFECE6; z-index: 2; }
+      .table-wrap tr:hover td:first-child { background: #FFFBF7; }
+    }
     .link { color: var(--blue); text-decoration: underline; cursor: pointer; font-size: 12px; }
     .link.danger { color: var(--danger); }
     #loadingRow td { text-align: center; color: var(--gray); padding: 30px; }
@@ -138,7 +159,12 @@
     /* ================= RESPONSIVE ================= */
 
     /* ตารางกว้างเกินจอ — ให้เลื่อนแนวนอนได้แทนที่จะดันหน้าเว็บให้กว้าง */
-    .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .table-wrap {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      border-radius: 10px;
+      background: var(--card);
+    }
 
     /* ตารางงาน 9 คอลัมน์เริ่มบีบจนอ่านไม่ออกตั้งแต่ ~900px จึงสลับเป็นการ์ดตั้งแต่ช่วงแท็บเล็ต */
     @media (max-width: 900px) {
@@ -173,6 +199,7 @@
       .table-wrap td {
         border: none;
         padding: 7px 0;
+        white-space: normal;
         display: flex;
         align-items: center;
         justify-content: space-between;
@@ -237,7 +264,7 @@
 
       <div id="viewList" style="display:none">
         <div class="filters">
-          <input id="searchBox" placeholder="ค้นหา Ticket ID / SCCD / ชื่อ / สถานที่">
+          <input id="searchBox" placeholder="ค้นหาจากทุกคอลัมน์ (Ticket / SCCD / ชื่อ / สถานที่ ...)">
           <select id="statusFilter">
             <option value="">ทุกสถานะ</option>
             <option>รอดำเนินการ</option>
@@ -250,17 +277,13 @@
         </div>
         <div class="table-wrap">
           <table>
-            <thead>
-              <tr>
-                <th>Ticket</th><th>วันที่แจ้ง</th><th>ผู้แจ้ง</th><th>สถานที่</th>
-                <th>ประเภท</th><th>รายละเอียด</th><th>สถานะ</th><th>ผู้รับผิดชอบ</th><th>รูป</th>
-              </tr>
-            </thead>
+            <thead id="ticketHead"></thead>
             <tbody id="ticketBody">
-              <tr id="loadingRow"><td class="empty" colspan="9">กำลังโหลด...</td></tr>
+              <tr id="loadingRow"><td class="empty" colspan="99">กำลังโหลด...</td></tr>
             </tbody>
           </table>
         </div>
+        <p class="hint" id="tableHint"></p>
       </div>
 
       <div id="viewTech" style="display:none">
@@ -296,6 +319,7 @@
   <script>
     let PIN = '';
     let allTickets = [];
+    let ticketHeaders = [];    // ชื่อคอลัมน์ตามลำดับจริงในชีท Requests
     let technicians = [];      // ชื่อช่างที่เปิดใช้งาน (สำหรับ dropdown มอบหมาย)
     let techniciansAll = [];   // ข้อมูลช่างทั้งหมด (สำหรับแท็บจัดการช่าง)
     let statusChart, categoryChart;
@@ -334,8 +358,9 @@
         renderTable();
         renderTechTable();
       }).getTechniciansAll(PIN);
-      google.script.run.withSuccessHandler(tickets => {
-        allTickets = tickets;
+      google.script.run.withSuccessHandler(res => {
+        ticketHeaders = res.headers || [];
+        allTickets = res.rows || [];
         renderTable();
         renderTechTable();   // อัปเดตคอลัมน์ "งานที่ถืออยู่"
       }).getAllTickets(PIN);
@@ -381,53 +406,89 @@
       });
     }
 
+    // ชื่อหัวคอลัมน์ภาษาไทย — คอลัมน์ที่ไม่ได้อยู่ในนี้ (เช่นที่เพิ่มเองในชีทภายหลัง) จะใช้ชื่อจากชีทตรงๆ
+    const HEADER_LABELS = {
+      TicketID: 'Ticket', SCCD: 'SCCD/ITSM', Timestamp: 'วันที่แจ้ง', ReporterType: 'ประเภทผู้แจ้ง',
+      ReporterName: 'ผู้แจ้ง', Contact: 'ติดต่อ', Department: 'แผนก', Location: 'สถานที่',
+      Category: 'ประเภทงาน', Description: 'รายละเอียด', PhotoURL: 'รูป', Status: 'สถานะ',
+      Priority: 'ความเร่งด่วน', AssignedTo: 'ผู้รับผิดชอบ', UpdatedAt: 'อัปเดตล่าสุด',
+      ClosedAt: 'ปิดงานเมื่อ', Notes: 'หมายเหตุ'
+    };
+    const DATE_COLS = ['Timestamp', 'UpdatedAt', 'ClosedAt'];
+    const WRAP_COLS = ['Description', 'Notes'];   // คอลัมน์ข้อความยาว ให้ตัดบรรทัดได้
+
+    function labelOf(h) { return HEADER_LABELS[h] || h; }
+
+    function fmtDate(v) {
+      if (!v) return '-';
+      const d = new Date(v);
+      if (isNaN(d.getTime())) return esc(v);
+      return d.toLocaleDateString('th-TH', {day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'});
+    }
+
+    // เนื้อหาในเซลล์ แยกตามชนิดของคอลัมน์
+    function cellHtml(t, h) {
+      const raw = t[h];
+      if (DATE_COLS.indexOf(h) !== -1) return fmtDate(raw);
+
+      if (h === 'PhotoURL') {
+        return raw ? `<a class="link" href="${esc(raw)}" target="_blank" rel="noopener">ดูรูป</a>` : '-';
+      }
+      if (h === 'Status') {
+        const opts = ['รอดำเนินการ','กำลังซ่อม','เสร็จสิ้น','ปิดงาน','ยกเลิก']
+          .map(s => `<option value="${s}" ${raw===s?'selected':''}>${s}</option>`).join('');
+        return `<select onchange="updateField('${t.TicketID}','status',this.value)">${opts}</select>`;
+      }
+      if (h === 'AssignedTo') {
+        // ถ้ามอบหมายให้ช่างที่ถูกปิดใช้งาน/ลบไปแล้ว ให้ยังแสดงชื่อเดิมไว้ในตัวเลือก
+        const assigned = String(raw || '').trim();
+        const names = technicians.slice();
+        if (assigned && names.indexOf(assigned) === -1) names.push(assigned + ' (ไม่ใช้งาน)');
+        const opts = ['-- ยังไม่มอบหมาย --', ...names].map(name => {
+          const val = name.replace(' (ไม่ใช้งาน)', '');
+          return `<option value="${esc(val)}" ${assigned===val?'selected':''}>${esc(name)}</option>`;
+        }).join('');
+        return `<select onchange="updateField('${t.TicketID}','assignedTo',this.value)">${opts}</select>`;
+      }
+      if (h === 'Priority' && raw) {
+        return `<span class="prio ${esc(raw)}">${esc(raw)}</span>`;
+      }
+      return raw === '' || raw === null || raw === undefined ? '-' : esc(raw);
+    }
+
     function renderTable() {
       const search = document.getElementById('searchBox').value.trim().toLowerCase();
       const statusF = document.getElementById('statusFilter').value;
+      const head = document.getElementById('ticketHead');
       const body = document.getElementById('ticketBody');
+      const cols = ticketHeaders.length ? ticketHeaders : ['TicketID'];
 
-      let filtered = allTickets.filter(t => {
-        const matchSearch = !search ||
-          (t.TicketID||'').toLowerCase().includes(search) ||
-          String(t.SCCD||'').toLowerCase().includes(search) ||
-          (t.ReporterName||'').toLowerCase().includes(search) ||
-          (t.Location||'').toLowerCase().includes(search);
+      head.innerHTML = '<tr>' + cols.map(h =>
+        `<th class="${WRAP_COLS.indexOf(h) !== -1 ? 'desc' : ''}">${esc(labelOf(h))}</th>`).join('') + '</tr>';
+
+      const filtered = allTickets.filter(t => {
+        // ค้นหาจากทุกคอลัมน์
+        const matchSearch = !search || cols.some(h => String(t[h] == null ? '' : t[h]).toLowerCase().includes(search));
         const matchStatus = !statusF || t.Status === statusF;
         return matchSearch && matchStatus;
       });
 
+      document.getElementById('tableHint').textContent = allTickets.length
+        ? `แสดง ${filtered.length} จาก ${allTickets.length} งาน — ${cols.length} คอลัมน์ตามชีท Requests (เลื่อนตารางแนวนอนเพื่อดูคอลัมน์ที่เหลือ)`
+        : '';
+
       if (filtered.length === 0) {
-        body.innerHTML = '<tr><td class="empty" colspan="9" style="text-align:center;color:#78716C;padding:30px">ไม่พบรายการ</td></tr>';
+        body.innerHTML = `<tr><td class="empty" colspan="${cols.length}" style="text-align:center;color:#78716C;padding:30px">ไม่พบรายการ</td></tr>`;
         return;
       }
 
-      body.innerHTML = filtered.map(t => {
-        const date = t.Timestamp ? new Date(t.Timestamp).toLocaleDateString('th-TH', {day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'}) : '-';
-        const statusOpts = ['รอดำเนินการ','กำลังซ่อม','เสร็จสิ้น','ปิดงาน','ยกเลิก']
-          .map(s => `<option value="${s}" ${t.Status===s?'selected':''}>${s}</option>`).join('');
-        // ถ้างานนี้มอบหมายให้ช่างที่ถูกปิดใช้งาน/ลบไปแล้ว ให้ยังแสดงชื่อเดิมไว้ในตัวเลือก
-        const assigned = (t.AssignedTo || '').trim();
-        const names = technicians.slice();
-        if (assigned && names.indexOf(assigned) === -1) names.push(assigned + ' (ไม่ใช้งาน)');
-        const techOpts = ['-- ยังไม่มอบหมาย --', ...names]
-          .map(name => {
-            const val = name.replace(' (ไม่ใช้งาน)', '');
-            return `<option value="${esc(val)}" ${assigned===val?'selected':''}>${esc(name)}</option>`;
-          }).join('');
-        const photoLink = t.PhotoURL ? `<a class="link" href="${t.PhotoURL}" target="_blank">ดูรูป</a>` : '-';
-
-        return `<tr>
-          <td class="ticket-cell" data-label="Ticket"><div>${esc(t.TicketID)}${t.SCCD ? `<br><span class="sccd">SCCD ${esc(t.SCCD)}</span>` : ''}</div></td>
-          <td class="nw" data-label="วันที่แจ้ง">${date}</td>
-          <td data-label="ผู้แจ้ง"><div>${esc(t.ReporterName)}<br><span style="color:#78716C;font-size:11px">${esc(t.ReporterType)}</span></div></td>
-          <td class="nw" data-label="สถานที่">${esc(t.Location)}</td>
-          <td data-label="ประเภท">${esc(t.Category)}</td>
-          <td class="desc" data-label="รายละเอียด" style="max-width:260px">${esc(t.Description)}</td>
-          <td data-label="สถานะ"><select onchange="updateField('${t.TicketID}','status',this.value)">${statusOpts}</select></td>
-          <td data-label="ผู้รับผิดชอบ"><select onchange="updateField('${t.TicketID}','assignedTo',this.value)">${techOpts}</select></td>
-          <td class="nw" data-label="รูป">${photoLink}</td>
-        </tr>`;
-      }).join('');
+      body.innerHTML = filtered.map(t => '<tr>' + cols.map(h => {
+        const cls = [
+          h === 'TicketID' ? 'ticket-cell' : '',
+          WRAP_COLS.indexOf(h) !== -1 ? 'desc' : ''
+        ].filter(String).join(' ');
+        return `<td class="${cls}" data-label="${esc(labelOf(h))}">${cellHtml(t, h)}</td>`;
+      }).join('') + '</tr>').join('');
     }
 
     function updateField(ticketId, field, value) {
