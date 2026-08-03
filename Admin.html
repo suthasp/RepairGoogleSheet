@@ -122,13 +122,13 @@
     }
     .vbar { flex: 0 0 auto; width: 56px; display: flex; flex-direction: column; align-items: center; }
     .vbar .n { font-size: 12px; font-weight: 700; margin-bottom: 5px; }
-    .vbar .n .done-n { display: block; font-size: 10px; margin: 0 0 1px; }
-    .vbar .col {
-      width: 28px; height: 170px; background: #EFECE6; border-radius: 6px;
-      overflow: hidden; display: flex; flex-direction: column; justify-content: flex-end;
+    /* คอลัมน์สูงเต็มพื้นที่กราฟ ส่วน .stack คือแท่งจริงที่สูงตามจำนวนงาน */
+    .vbar .col { width: 28px; height: 180px; display: flex; flex-direction: column; justify-content: flex-end; }
+    .vbar .stack {
+      width: 100%; display: flex; flex-direction: column;
+      border-radius: 5px 5px 0 0; overflow: hidden;
     }
-    .vbar .seg { width: 100%; background: var(--orange); }
-    .vbar .seg.done { background: var(--teal); }
+    .vbar .seg { width: 100%; }
     .vbar .name {
       font-family: ui-monospace, Menlo, Consolas, monospace;
       font-size: 10.5px; color: var(--gray); margin-top: 7px;
@@ -582,9 +582,7 @@
 
       renderStatusDonut(stats.byStatus || {});
       renderBars('categoryChart', stats.byCategory || {});
-      renderVBars('locationChart', stats.byLocation || {}, {
-        done: stats.byLocationDone || {}
-      });
+      renderStackedColumns('locationChart', stats.byLocation || {}, stats.byLocationStatus || {});
     }
 
     // ---- กราฟ (วาดเอง ไม่ใช้ไลบรารีภายนอก) ----
@@ -595,35 +593,45 @@
     };
     const FALLBACK_COLORS = ['#E8590C', '#0891B2', '#7C3AED', '#CA8A04', '#DB2777'];
 
-    /** กราฟแท่งแนวตั้ง — พารามิเตอร์เหมือน renderBars (เลื่อนแนวนอนได้ถ้าสถานที่เยอะ) */
-    function renderVBars(boxId, data, opts) {
-      opts = opts || {};
-      const done = opts.done || null;
+    /**
+     * Stacked column — ความสูงแท่ง = จำนวนงานทั้งหมดของสถานที่นั้น แบ่งช่วงตามสถานะ
+     * stack = { ชื่อรายการ: { สถานะ: จำนวน } }
+     */
+    function renderStackedColumns(boxId, totals, stack, limit) {
       const box = document.getElementById(boxId);
-      const rows = Object.keys(data)
-        .map(k => ({ name: k, val: data[k] }))
+      const rows = Object.keys(totals)
+        .map(k => ({ name: k, val: totals[k] }))
         .filter(r => r.val)
         .sort((a, b) => b.val - a.val);
 
       if (!rows.length) { box.innerHTML = '<div class="chart-empty">ยังไม่มีข้อมูล</div>'; return; }
 
       const max = rows[0].val;
-      const shown = opts.limit ? rows.slice(0, opts.limit) : rows;
+      const shown = limit ? rows.slice(0, limit) : rows;
 
-      const legend = done ? `<div class="bars-legend">
-        <span><i style="background:var(--teal)"></i>เสร็จสิ้น</span>
-        <span><i style="background:var(--orange)"></i>ยังไม่เสร็จ</span>
-      </div>` : '';
+      // เรียงสถานะตามลำดับมาตรฐาน แล้วต่อด้วยค่าแปลกๆ ที่อาจมีในชีท — แสดงเฉพาะสถานะที่มีจริง
+      const present = {};
+      shown.forEach(r => Object.keys(stack[r.name] || {}).forEach(s => { present[s] = true; }));
+      const order = STATUS_OPTIONS.filter(s => present[s])
+        .concat(Object.keys(present).filter(s => STATUS_OPTIONS.indexOf(s) === -1));
+      const colorOf = (s, i) => STATUS_COLORS[s] || FALLBACK_COLORS[i % FALLBACK_COLORS.length];
+
+      const legend = '<div class="bars-legend">' + order.map((s, i) =>
+        `<span><i style="background:${colorOf(s, i)}"></i>${esc(s)}</span>`).join('') + '</div>';
 
       box.innerHTML = legend + '<div class="vbars">' + shown.map(r => {
-        const d = done ? Math.min(done[r.name] || 0, r.val) : 0;
-        const open = r.val - d;
-        // เรียงจากบนลงล่าง: ส่วนที่ยังไม่เสร็จอยู่บน ส่วนที่เสร็จแล้วกองอยู่ฐาน
-        const seg = (v, cls) => v > 0
-          ? `<div class="seg ${cls}" style="height:${(v / max * 100).toFixed(1)}%"></div>` : '';
-        return `<div class="vbar" title="${esc(r.name)} — ${r.val} งาน${d ? ' (เสร็จ ' + d + ')' : ''}">
-          <div class="n">${d ? `<span class="done-n" style="color:var(--teal)">เสร็จ ${d}</span>` : ''}${r.val}</div>
-          <div class="col">${seg(open, '')}${seg(d, 'done')}</div>
+        const parts = stack[r.name] || {};
+        // ในกล่อง flex ตัวแรกอยู่บนสุด จึงกลับลำดับเพื่อให้สถานะแรกอยู่ฐานแท่ง
+        const segs = order.slice().reverse().map(s => {
+          const v = parts[s] || 0;
+          if (!v) return '';
+          const idx = order.indexOf(s);
+          return `<div class="seg" style="height:${(v / r.val * 100).toFixed(2)}%;background:${colorOf(s, idx)}"></div>`;
+        }).join('');
+        const tip = order.filter(s => parts[s]).map(s => `${s} ${parts[s]}`).join(', ');
+        return `<div class="vbar" title="${esc(r.name)} — ${r.val} งาน (${esc(tip)})">
+          <div class="n">${r.val}</div>
+          <div class="col"><div class="stack" style="height:${(r.val / max * 100).toFixed(1)}%">${segs}</div></div>
           <div class="name">${esc(r.name)}</div>
         </div>`;
       }).join('') + '</div>';
