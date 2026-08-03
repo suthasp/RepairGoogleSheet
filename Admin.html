@@ -113,6 +113,27 @@
     .bars-legend { display: flex; gap: 16px; font-size: 11.5px; color: var(--gray); margin-bottom: 14px; }
     .bars-legend span { display: flex; align-items: center; gap: 6px; }
     .bars-legend i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+
+    /* ---- กราฟแท่งแนวตั้ง ---- */
+    .vbars {
+      display: flex; align-items: flex-end; gap: 10px;
+      overflow-x: auto; padding-bottom: 6px;
+      -webkit-overflow-scrolling: touch;
+    }
+    .vbar { flex: 0 0 auto; width: 56px; display: flex; flex-direction: column; align-items: center; }
+    .vbar .n { font-size: 12px; font-weight: 700; margin-bottom: 5px; }
+    .vbar .n .done-n { display: block; font-size: 10px; margin: 0 0 1px; }
+    .vbar .col {
+      width: 28px; height: 170px; background: #EFECE6; border-radius: 6px;
+      overflow: hidden; display: flex; flex-direction: column; justify-content: flex-end;
+    }
+    .vbar .seg { width: 100%; background: var(--orange); }
+    .vbar .seg.done { background: var(--teal); }
+    .vbar .name {
+      font-family: ui-monospace, Menlo, Consolas, monospace;
+      font-size: 10.5px; color: var(--gray); margin-top: 7px;
+      text-align: center; word-break: break-all; line-height: 1.3;
+    }
     .chart-card.wide { margin-bottom: 24px; }
     .chart-card.wide .bar-row .top .name { font-family: ui-monospace, Menlo, Consolas, monospace; }
 
@@ -561,8 +582,7 @@
 
       renderStatusDonut(stats.byStatus || {});
       renderBars('categoryChart', stats.byCategory || {});
-      renderBars('locationChart', stats.byLocation || {}, {
-        unitWord: 'สถานที่',
+      renderVBars('locationChart', stats.byLocation || {}, {
         done: stats.byLocationDone || {}
       });
     }
@@ -574,6 +594,40 @@
       'ปิดงาน': '#4338CA', 'ยกเลิก': '#B91C1C'
     };
     const FALLBACK_COLORS = ['#E8590C', '#0891B2', '#7C3AED', '#CA8A04', '#DB2777'];
+
+    /** กราฟแท่งแนวตั้ง — พารามิเตอร์เหมือน renderBars (เลื่อนแนวนอนได้ถ้าสถานที่เยอะ) */
+    function renderVBars(boxId, data, opts) {
+      opts = opts || {};
+      const done = opts.done || null;
+      const box = document.getElementById(boxId);
+      const rows = Object.keys(data)
+        .map(k => ({ name: k, val: data[k] }))
+        .filter(r => r.val)
+        .sort((a, b) => b.val - a.val);
+
+      if (!rows.length) { box.innerHTML = '<div class="chart-empty">ยังไม่มีข้อมูล</div>'; return; }
+
+      const max = rows[0].val;
+      const shown = opts.limit ? rows.slice(0, opts.limit) : rows;
+
+      const legend = done ? `<div class="bars-legend">
+        <span><i style="background:var(--teal)"></i>เสร็จสิ้น</span>
+        <span><i style="background:var(--orange)"></i>ยังไม่เสร็จ</span>
+      </div>` : '';
+
+      box.innerHTML = legend + '<div class="vbars">' + shown.map(r => {
+        const d = done ? Math.min(done[r.name] || 0, r.val) : 0;
+        const open = r.val - d;
+        // เรียงจากบนลงล่าง: ส่วนที่ยังไม่เสร็จอยู่บน ส่วนที่เสร็จแล้วกองอยู่ฐาน
+        const seg = (v, cls) => v > 0
+          ? `<div class="seg ${cls}" style="height:${(v / max * 100).toFixed(1)}%"></div>` : '';
+        return `<div class="vbar" title="${esc(r.name)} — ${r.val} งาน${d ? ' (เสร็จ ' + d + ')' : ''}">
+          <div class="n">${d ? `<span class="done-n" style="color:var(--teal)">เสร็จ ${d}</span>` : ''}${r.val}</div>
+          <div class="col">${seg(open, '')}${seg(d, 'done')}</div>
+          <div class="name">${esc(r.name)}</div>
+        </div>`;
+      }).join('') + '</div>';
+    }
 
     function renderStatusDonut(byStatus) {
       const box = document.getElementById('statusChart');
