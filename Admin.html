@@ -137,20 +137,42 @@
     .chart-card.wide { margin-bottom: 24px; }
     .chart-card.wide .bar-row .top .name { font-family: ui-monospace, Menlo, Consolas, monospace; }
 
-    /* ---- Table ---- */
-    .filters { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+    /* ---- แถบเครื่องมือเหนือตาราง ---- */
+    .filters { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; align-items: center; }
+    .filters .spacer { flex: 1 1 auto; }
     .filters input, .filters select {
-      padding: 8px 10px; border: 1.5px solid var(--line); border-radius: 6px; font-family: inherit; font-size: 13px;
+      height: 38px; padding: 0 12px;
+      border: 1.5px solid var(--line); border-radius: 8px;
+      font-family: inherit; font-size: 13.5px; background: #fff; color: var(--ink);
     }
-    #searchBox { min-width: 260px; }
-    .btn-export {
-      background: var(--teal); color: #fff; border: none;
-      padding: 8px 14px; border-radius: 6px; cursor: pointer;
-      font-family: inherit; font-size: 13px; font-weight: 700; white-space: nowrap;
+    .filters select { padding-right: 8px; cursor: pointer; }
+    .filters input:focus, .filters select:focus { outline: none; border-color: var(--orange); }
+    #searchBox { flex: 0 1 360px; min-width: 200px; }
+
+    /* ปุ่มในแถบเครื่องมือ — สูงเท่ากับช่องกรอกเพื่อให้แถวเดียวกันดูเรียบ */
+    .btn-tool {
+      height: 38px; padding: 0 15px;
+      display: inline-flex; align-items: center; gap: 7px;
+      border-radius: 8px; border: 1.5px solid transparent;
+      font-family: inherit; font-size: 13.5px; font-weight: 700;
+      cursor: pointer; white-space: nowrap;
+      transition: background-color .15s, border-color .15s, box-shadow .15s;
     }
-    .btn-export:hover { background: #0B5C55; }
-    .btn-export:disabled { opacity: 0.55; cursor: default; }
-    .export-note { font-size: 12px; color: var(--gray); align-self: center; }
+    .btn-tool svg { width: 16px; height: 16px; flex: 0 0 auto; }
+    .btn-tool.secondary { background: #fff; border-color: var(--line); color: var(--ink); }
+    .btn-tool.secondary:hover { background: #FAF9F6; border-color: #CFC9BD; }
+    .btn-tool.primary {
+      background: var(--teal); color: #fff;
+      box-shadow: 0 1px 2px rgba(15, 118, 110, 0.25);
+    }
+    .btn-tool.primary:hover { background: #0B5C55; box-shadow: 0 2px 6px rgba(15, 118, 110, 0.3); }
+    .btn-tool:disabled { opacity: 0.5; cursor: default; box-shadow: none; }
+
+    /* ไอคอนรีเฟรชหมุนระหว่างโหลดข้อมูล */
+    .btn-tool.loading svg { animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .export-note { font-size: 12.5px; color: var(--gray); }
     .export-note a { color: var(--blue); font-weight: 700; }
     /* separate + spacing 0 ให้ผลเหมือน collapse แต่ position:sticky บนเซลล์ถึงจะทำงาน
        และห้ามใส่ overflow บน table เพราะจะทำให้เซลล์ sticky ยึดกับตารางแทนกรอบที่เลื่อน */
@@ -429,9 +451,22 @@
         <div class="filters">
           <input id="searchBox" placeholder="ค้นหาจากทุกคอลัมน์ (Ticket / SCCD / ชื่อ / สถานที่ ...)">
           <select id="statusFilter"><option value="">ทุกสถานะ</option></select>
-          <span class="link" id="refreshBtn">🔄 รีเฟรช</span>
-          <button class="btn-export" id="exportBtn">⬇️ Export Excel</button>
           <span class="export-note" id="exportNote"></span>
+          <span class="spacer"></span>
+          <button class="btn-tool secondary" id="refreshBtn" title="โหลดข้อมูลใหม่จากชีท">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M20.5 12a8.5 8.5 0 1 1-2.8-6.3"/><path d="M20.5 4v5h-5"/>
+            </svg>
+            รีเฟรช
+          </button>
+          <button class="btn-tool primary" id="exportBtn" title="ดาวน์โหลดรายการที่กรองไว้เป็นไฟล์ Excel">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M12 3v11"/><path d="M7.5 10.5 12 15l4.5-4.5"/><path d="M4 20h16"/>
+            </svg>
+            Export Excel
+          </button>
         </div>
         <div class="table-wrap">
           <table>
@@ -565,7 +600,14 @@
         .checkAdminPin(pin);
     }
 
+    function setRefreshing(on) {
+      const btn = document.getElementById('refreshBtn');
+      btn.classList.toggle('loading', !!on);
+      btn.disabled = !!on;
+    }
+
     function loadAll() {
+      setRefreshing(true);
       google.script.run.withSuccessHandler(renderStats).getDashboardStats(PIN);
       google.script.run.withSuccessHandler(list => {
         techniciansAll = list;
@@ -573,12 +615,19 @@
         renderTable();
         renderTechTable();
       }).getTechniciansAll(PIN);
-      google.script.run.withSuccessHandler(res => {
-        ticketHeaders = res.headers || [];
-        allTickets = res.rows || [];
-        renderTable();
-        renderTechTable();   // อัปเดตคอลัมน์ "งานที่ถืออยู่"
-      }).getAllTickets(PIN);
+      google.script.run
+        .withSuccessHandler(res => {
+          ticketHeaders = res.headers || [];
+          allTickets = res.rows || [];
+          renderTable();
+          renderTechTable();   // อัปเดตคอลัมน์ "งานที่ถืออยู่"
+          setRefreshing(false);
+        })
+        .withFailureHandler(err => {
+          setRefreshing(false);
+          document.getElementById('exportNote').textContent = 'โหลดข้อมูลไม่สำเร็จ: ' + err.message;
+        })
+        .getAllTickets(PIN);
     }
 
     function renderStats(stats) {
