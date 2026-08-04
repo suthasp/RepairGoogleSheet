@@ -143,6 +143,15 @@
       padding: 8px 10px; border: 1.5px solid var(--line); border-radius: 6px; font-family: inherit; font-size: 13px;
     }
     #searchBox { min-width: 260px; }
+    .btn-export {
+      background: var(--teal); color: #fff; border: none;
+      padding: 8px 14px; border-radius: 6px; cursor: pointer;
+      font-family: inherit; font-size: 13px; font-weight: 700; white-space: nowrap;
+    }
+    .btn-export:hover { background: #0B5C55; }
+    .btn-export:disabled { opacity: 0.55; cursor: default; }
+    .export-note { font-size: 12px; color: var(--gray); align-self: center; }
+    .export-note a { color: var(--blue); font-weight: 700; }
     /* separate + spacing 0 ให้ผลเหมือน collapse แต่ position:sticky บนเซลล์ถึงจะทำงาน
        และห้ามใส่ overflow บน table เพราะจะทำให้เซลล์ sticky ยึดกับตารางแทนกรอบที่เลื่อน */
     table { width: 100%; border-collapse: separate; border-spacing: 0; background: var(--card); }
@@ -421,6 +430,8 @@
           <input id="searchBox" placeholder="ค้นหาจากทุกคอลัมน์ (Ticket / SCCD / ชื่อ / สถานที่ ...)">
           <select id="statusFilter"><option value="">ทุกสถานะ</option></select>
           <span class="link" id="refreshBtn">🔄 รีเฟรช</span>
+          <button class="btn-export" id="exportBtn">⬇️ Export Excel</button>
+          <span class="export-note" id="exportNote"></span>
         </div>
         <div class="table-wrap">
           <table>
@@ -780,9 +791,20 @@
       return esc(raw);
     }
 
-    function renderTable() {
+    /** รายการงานตามที่กรองไว้บนหน้าจอ (ใช้ร่วมกันระหว่างตารางกับการ export) */
+    function getFilteredTickets() {
       const search = document.getElementById('searchBox').value.trim().toLowerCase();
       const statusF = document.getElementById('statusFilter').value;
+      const cols = ticketHeaders.length ? ticketHeaders : ['TicketID'];
+      return allTickets.filter(t => {
+        // ค้นหาจากทุกคอลัมน์
+        const matchSearch = !search || cols.some(h => String(t[h] == null ? '' : t[h]).toLowerCase().includes(search));
+        const matchStatus = !statusF || t.Status === statusF;
+        return matchSearch && matchStatus;
+      });
+    }
+
+    function renderTable() {
       const head = document.getElementById('ticketHead');
       const body = document.getElementById('ticketBody');
       const cols = ticketHeaders.length ? ticketHeaders : ['TicketID'];
@@ -791,12 +813,7 @@
         `<th class="${WRAP_COLS.indexOf(h) !== -1 ? 'desc' : ''}">${esc(labelOf(h))}</th>`).join('')
         + '<th>จัดการ</th></tr>';
 
-      const filtered = allTickets.filter(t => {
-        // ค้นหาจากทุกคอลัมน์
-        const matchSearch = !search || cols.some(h => String(t[h] == null ? '' : t[h]).toLowerCase().includes(search));
-        const matchStatus = !statusF || t.Status === statusF;
-        return matchSearch && matchStatus;
-      });
+      const filtered = getFilteredTickets();
 
       document.getElementById('tableHint').textContent = allTickets.length
         ? `แสดง ${filtered.length} จาก ${allTickets.length} งาน — ${cols.length} คอลัมน์ตามชีท Requests (เลื่อนตารางแนวนอนเพื่อดูคอลัมน์ที่เหลือ)`
@@ -817,6 +834,56 @@
         + `<td class="actions" data-label=""><button class="btn-upd" onclick="openEdit('${esc(t.TicketID)}')">✏️ อัปเดต</button></td>`
         + '</tr>').join('');
     }
+
+    // ---- Export Excel ----
+    function exportExcel() {
+      const rows = getFilteredTickets();
+      const note = document.getElementById('exportNote');
+      const btn = document.getElementById('exportBtn');
+
+      if (!rows.length) { note.textContent = 'ไม่มีรายการให้ส่งออก'; return; }
+
+      btn.disabled = true;
+      note.textContent = `กำลังสร้างไฟล์ ${rows.length} รายการ...`;
+
+      google.script.run
+        .withSuccessHandler(res => {
+          btn.disabled = false;
+          try {
+            downloadBase64(res.base64, res.filename,
+              'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', note, res.count);
+          } catch (e) {
+            note.textContent = 'สร้างไฟล์ไม่สำเร็จ: ' + e.message;
+          }
+        })
+        .withFailureHandler(err => {
+          btn.disabled = false;
+          note.textContent = 'ส่งออกไม่สำเร็จ: ' + err.message;
+        })
+        .exportTicketsXlsx(PIN, rows.map(t => t.TicketID));
+    }
+
+    function downloadBase64(b64, filename, mime, note, count) {
+      const bin = atob(b64);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      const url = URL.createObjectURL(new Blob([bytes], { type: mime }));
+
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+
+      // หน้าแอดมินรันอยู่ใน iframe ของ Apps Script บางเบราว์เซอร์อาจบล็อกการดาวน์โหลดอัตโนมัติ
+      // จึงเหลือลิงก์สำรองให้กดเองไว้ด้วย
+      note.innerHTML = `ส่งออก ${count} รายการแล้ว — ` +
+        `<a href="${url}" download="${esc(filename)}">ถ้าไฟล์ไม่ถูกดาวน์โหลด กดที่นี่</a>`;
+      setTimeout(() => URL.revokeObjectURL(url), 120000);
+    }
+
+    document.getElementById('exportBtn').addEventListener('click', exportExcel);
 
     // ---- หน้าต่างอัปเดตข้อมูล ----
     const PRIORITY_OPTIONS = ['ต่ำ', 'ปานกลาง', 'สูง', 'เร่งด่วน'];

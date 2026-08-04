@@ -490,6 +490,58 @@ function updateTicket(pin, ticketId, updates) {
   throw new Error('ไม่พบ Ticket ID นี้');
 }
 
+/**
+ * ส่งออกรายการงานเป็นไฟล์ Excel (.xlsx) จริง
+ * @param {string[]} ticketIds เฉพาะงานที่ระบุ (ไม่ใส่ = ทั้งหมด) ใช้ให้ตรงกับที่กรองไว้บนหน้าจอ
+ * @return {{filename: string, base64: string, count: number}}
+ */
+function exportTicketsXlsx(pin, ticketIds) {
+  if (!checkAdminPin(pin)) throw new Error('PIN ไม่ถูกต้อง');
+
+  const sh = getSheet_(SHEET_REQUESTS);
+  const values = sh.getDataRange().getValues();
+  const headers = values[0];
+  const idCol = headers.indexOf('TicketID');
+  let rows = values.slice(1);
+
+  if (ticketIds && ticketIds.length) {
+    const wanted = {};
+    ticketIds.forEach(id => { wanted[String(id)] = true; });
+    rows = rows.filter(r => wanted[String(r[idCol])]);
+  }
+  if (!rows.length) throw new Error('ไม่มีรายการให้ส่งออก');
+
+  // สร้างไฟล์ชั่วคราวเพื่อให้ Google แปลงเป็น xlsx แล้วลบทิ้งทันทีหลังใช้งาน
+  const temp = SpreadsheetApp.create('_export_tmp_' + Date.now());
+  try {
+    const ts = temp.getSheets()[0];
+    ts.setName('Requests');
+    ts.getRange(1, 1, 1, headers.length).setValues([headers])
+      .setFontWeight('bold').setBackground('#4a86e8').setFontColor('white');
+    ts.getRange(2, 1, rows.length, headers.length).setValues(rows);
+    ts.setFrozenRows(1);
+    SpreadsheetApp.flush();
+
+    const url = 'https://docs.google.com/spreadsheets/d/' + temp.getId() + '/export?format=xlsx';
+    const res = UrlFetchApp.fetch(url, {
+      headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() },
+      muteHttpExceptions: true
+    });
+    if (res.getResponseCode() !== 200) {
+      throw new Error('สร้างไฟล์ Excel ไม่สำเร็จ (HTTP ' + res.getResponseCode() + ')');
+    }
+
+    const stamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyyMMdd-HHmm');
+    return {
+      filename: 'repair-report-' + stamp + '.xlsx',
+      base64: Utilities.base64Encode(res.getContent()),
+      count: rows.length
+    };
+  } finally {
+    DriveApp.getFileById(temp.getId()).setTrashed(true);
+  }
+}
+
 function getDashboardStats(pin) {
   if (!checkAdminPin(pin)) throw new Error('PIN ไม่ถูกต้อง');
   const sh = getSheet_(SHEET_REQUESTS);
