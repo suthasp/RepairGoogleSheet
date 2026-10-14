@@ -224,7 +224,7 @@
       <input id="reporterName" placeholder="เช่น สมชาย ใจดี">
 
       <label>แผนก/หน่วยงาน (ถ้ามี)</label>
-      <input id="department" placeholder="เช่น ฝ่ายบัญชี">
+      <select id="department"><option value="">กำลังโหลด...</option></select>
 
       <label>เบอร์โทร / ช่องทางติดต่อ</label>
       <input id="contact" placeholder="เช่น 08x-xxx-xxxx">
@@ -315,6 +315,9 @@
       const locSel = document.getElementById('location');
       locSel.innerHTML = '<option value="">-- เลือกสถานที่ --</option>' +
         locationOptions(opts.locations || []);
+      const deptSel = document.getElementById('department');
+      deptSel.innerHTML = '<option value="">-- ไม่ระบุ --</option>' +
+        (opts.departments || []).map(d => `<option value="${esc(d)}">${esc(d)}</option>`).join('');
       const catSel = document.getElementById('category');
       catSel.innerHTML = '<option value="">-- เลือกประเภท --</option>' +
         opts.categories.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');

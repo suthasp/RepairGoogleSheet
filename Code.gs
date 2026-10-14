@@ -23,6 +23,9 @@ const REQUEST_HEADERS = [
 const STATUS_LIST = ['รอดำเนินการ', 'กำลังซ่อม', 'เสร็จสิ้น', 'ยกเลิก'];
 const PRIORITY_LIST = ['ต่ำ', 'ปานกลาง', 'สูง', 'เร่งด่วน'];
 
+// พื้นที่ของผู้แจ้ง — ใช้เป็นตัวเลือก "แผนก/หน่วยงาน" ในฟอร์ม (ตามที่ RNSA กำหนด)
+const DEPARTMENT_LIST = ['BMA-West 1', 'BMA-West 2', 'BMA-East 1', 'BMA-East 2', 'BMA-East 3'];
+
 // รายชื่อสถานที่ (รหัสสาขา/หน่วยงาน) — แก้เพิ่ม/ลบได้ในชีท "Locations" ไม่ต้องแก้โค้ด
 const LOCATION_LIST = [
   'AGN-ASD', 'AGN-BBT', 'AGN-BGC', 'AGN-BPL', 'AGN-CSW', 'AGN-DNM', 'AGN-LTP',
@@ -202,7 +205,8 @@ function generateTicketId_() {
 function getFormOptions() {
   const shC = getSheet_(SHEET_CATEGORIES);
   const categories = shC.getDataRange().getValues().slice(1).map(r => r[0]).filter(String);
-  return { categories: categories, locations: getLocations_(), priorities: PRIORITY_LIST };
+  return { categories: categories, locations: getLocations_(), priorities: PRIORITY_LIST,
+           departments: DEPARTMENT_LIST };
 }
 
 /** รายชื่อสถานที่จากชีท Locations (ถ้ายังไม่มีชีท ใช้ค่าตั้งต้นในโค้ด) */
