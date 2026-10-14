@@ -223,10 +223,10 @@
       <label class="req">ชื่อผู้แจ้ง</label>
       <input id="reporterName" placeholder="เช่น สมชาย ใจดี">
 
-      <label>แผนก/หน่วยงาน (ถ้ามี)</label>
+      <label class="req">แผนก/หน่วยงาน</label>
       <select id="department"><option value="">กำลังโหลด...</option></select>
 
-      <label>เบอร์โทร / ช่องทางติดต่อ</label>
+      <label class="req">เบอร์โทร / ช่องทางติดต่อ</label>
       <input id="contact" placeholder="เช่น 08x-xxx-xxxx">
 
       <label class="req">สถานที่เกิดเหตุ</label>
@@ -316,7 +316,7 @@
       locSel.innerHTML = '<option value="">-- เลือกสถานที่ --</option>' +
         locationOptions(opts.locations || []);
       const deptSel = document.getElementById('department');
-      deptSel.innerHTML = '<option value="">-- ไม่ระบุ --</option>' +
+      deptSel.innerHTML = '<option value="">-- เลือกแผนก/หน่วยงาน --</option>' +
         (opts.departments || []).map(d => `<option value="${esc(d)}">${esc(d)}</option>`).join('');
       const catSel = document.getElementById('category');
       catSel.innerHTML = '<option value="">-- เลือกประเภท --</option>' +
@@ -344,7 +344,7 @@
         photoName: photoName
       };
 
-      if (!payload.reporterName || !payload.location || !payload.category || !payload.description) {
+      if (!payload.reporterName || !payload.department || !payload.contact || !payload.location || !payload.category || !payload.description) {
         errBox.textContent = 'กรุณากรอกข้อมูลที่มีเครื่องหมาย * ให้ครบถ้วน';
         errBox.style.display = 'block';
         return;

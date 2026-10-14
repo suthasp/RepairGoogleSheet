@@ -225,8 +225,12 @@ function getLocations_() {
  * }
  */
 function submitTicket(data) {
-  if (!data.reporterName || !data.location || !data.category || !data.description) {
+  if (!data.reporterName || !data.department || !data.contact ||
+      !data.location || !data.category || !data.description) {
     throw new Error('กรุณากรอกข้อมูลให้ครบถ้วน');
+  }
+  if (DEPARTMENT_LIST.indexOf(String(data.department).trim()) === -1) {
+    throw new Error('ไม่พบแผนก/หน่วยงาน "' + data.department + '" ในระบบ กรุณาเลือกจากรายการ');
   }
 
   // สถานที่ต้องเป็นรหัสที่มีอยู่ในชีท Locations เท่านั้น (กันข้อมูลเพี้ยนตอนทำรายงาน)
@@ -251,8 +255,8 @@ function submitTicket(data) {
     Timestamp: now,
     ReporterType: data.reporterType || '',
     ReporterName: data.reporterName,
-    Contact: data.contact || '',
-    Department: data.department || '',
+    Contact: data.contact,
+    Department: data.department,
     Location: data.location,
     Category: data.category,
     Description: data.description,
