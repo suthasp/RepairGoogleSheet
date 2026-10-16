@@ -126,6 +126,35 @@ function migrateAddSccdColumn() {
   try { SpreadsheetApp.getUi().alert(msg); } catch (e) { console.log(msg); }
 }
 
+/**
+ * เติมเลข 0 ข้างหน้าเบอร์ติดต่อของงานเดิมที่ชีทแปลงเป็นตัวเลขไปแล้ว (เช่น 922676595 → 0922676595)
+ * เลือกฟังก์ชันนี้แล้วกด Run ครั้งเดียว — รันซ้ำได้ ไม่เติม 0 ซ้ำ
+ */
+function migrateFixContactLeadingZero() {
+  const sh = getSheet_(SHEET_REQUESTS);
+  const headers = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0];
+  const col = headers.indexOf('Contact');
+  if (col === -1) throw new Error('ไม่พบคอลัมน์ Contact');
+  if (sh.getLastRow() < 2) return;
+
+  const range = sh.getRange(2, col + 1, sh.getLastRow() - 1, 1);
+  const values = range.getValues();
+  let fixed = 0;
+  const out = values.map(([v]) => {
+    // เฉพาะค่าที่เป็นตัวเลข 8-9 หลัก = เบอร์บ้าน/มือถือไทยที่ 0 นำหน้าหายไป
+    if (typeof v === 'number' && /^\d{8,9}$/.test(String(v))) {
+      fixed++;
+      return ['0' + v];
+    }
+    return [v];
+  });
+  range.setNumberFormat('@').setValues(out);
+  SpreadsheetApp.flush();
+
+  const msg = `แก้เบอร์ติดต่อ ${fixed} รายการเรียบร้อย`;
+  try { SpreadsheetApp.getUi().alert(msg); } catch (e) { console.log(msg); }
+}
+
 function columnLetter_(col) {
   let s = '';
   while (col > 0) {
@@ -255,7 +284,8 @@ function submitTicket(data) {
     Timestamp: now,
     ReporterType: data.reporterType || '',
     ReporterName: data.reporterName,
-    Contact: data.contact,
+    // ใส่ ' นำหน้าให้ชีทเก็บเป็นข้อความ ไม่งั้นเบอร์ 08x... จะถูกแปลงเป็นตัวเลขแล้ว 0 หาย
+    Contact: "'" + data.contact,
     Department: data.department,
     Location: data.location,
     Category: data.category,
@@ -523,6 +553,9 @@ function exportTicketsXlsx(pin, ticketIds) {
     ts.setName('Requests');
     ts.getRange(1, 1, 1, headers.length).setValues([headers])
       .setFontWeight('bold').setBackground('#4a86e8').setFontColor('white');
+    // คอลัมน์เบอร์ติดต่อต้องเป็นข้อความก่อนใส่ค่า ไม่งั้นเลข 0 นำหน้าจะหายในไฟล์ Excel
+    const contactCol = headers.indexOf('Contact');
+    if (contactCol !== -1) ts.getRange(2, contactCol + 1, rows.length, 1).setNumberFormat('@');
     ts.getRange(2, 1, rows.length, headers.length).setValues(rows);
     ts.setFrozenRows(1);
     SpreadsheetApp.flush();
